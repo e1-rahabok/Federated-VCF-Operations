@@ -1,0 +1,112 @@
+# ==============================================================================
+# VCF Operations 9 - Alert Collection Configuration
+# ==============================================================================
+# Format: YAML (Human-Friendly, Readable, Supports Comments)
+# Description: Defines the alerts to be collected and filtered per object type.
+# Note: All alerts listed are active by default. To disable an alert, comment out its block.
+# ==============================================================================
+
+version: "1.0"
+
+# Global alert collection rules
+settings:
+  polling_interval_seconds: 60
+  include_canceled_alerts: true
+  min_alert_severity: "WARNING" # Options: CRITICAL, IMMEDIATE, WARNING, INFO
+
+# Alerts grouped by VCF Operations object type (resourceKind)
+object_types:
+
+  # ----------------------------------------------------------------------------
+  # Object Type: VirtualMachine
+  # ----------------------------------------------------------------------------
+  VirtualMachine:
+    description: "Alert definitions monitored for Virtual Machines"
+    alert_filters:
+      - alert_sub_type: "CPU"
+        name: "VM High CPU Utilization Alert"
+        min_severity: "WARNING"
+        description: "VM is experiencing high CPU workload or Ready Time latency"
+
+      - alert_sub_type: "MEMORY"
+        name: "VM High Memory Swapping Alert"
+        min_severity: "WARNING"
+        description: "VM guest memory is swapping or ballooning severely"
+
+      - alert_sub_type: "STORAGE"
+        name: "VM Virtual Disk Latency Alert"
+        min_severity: "IMMEDIATE"
+        description: "Virtual disk I/O response time exceeded threshold"
+
+      - alert_sub_type: "AVAILABILITY"
+        name: "VM Guest OS Down / Unresponsive Alert"
+        min_severity: "CRITICAL"
+        description: "VM VMware Tools heartbeat lost or OS kernel crashed"
+
+  # ----------------------------------------------------------------------------
+  # Object Type: HostSystem (ESXi Hypervisor Host)
+  # ----------------------------------------------------------------------------
+  HostSystem:
+    description: "Alert definitions monitored for ESXi Hosts"
+    alert_filters:
+      - alert_sub_type: "HARDWARE"
+        name: "Physical Host Hardware Failure"
+        min_severity: "CRITICAL"
+        description: "Physical PSU, memory ECC, thermal, or fan fault detected"
+
+      - alert_sub_type: "CONNECTIVITY"
+        name: "ESXi Host Disconnected from vCenter"
+        min_severity: "CRITICAL"
+        description: "ESXi host management agent lost network connection"
+
+      - alert_sub_type: "PERFORMANCE"
+        name: "Host Memory Contention & Ballooning"
+        min_severity: "WARNING"
+        description: "Host is severely overcommitted and actively swapping"
+
+      - alert_sub_type: "STORAGE"
+        name: "Host Storage Path Down (APD/PDL)"
+        min_severity: "CRITICAL"
+        description: "All Paths Down (APD) or Permanent Device Loss (PDL) on HBA"
+
+  # ----------------------------------------------------------------------------
+  # Object Type: ClusterComputeResource (vSphere Cluster)
+  # ----------------------------------------------------------------------------
+  ClusterComputeResource:
+    description: "Alert definitions monitored for vSphere Clusters"
+    alert_filters:
+      - alert_sub_type: "CAPACITY"
+        name: "Cluster CPU/Memory Capacity Exhaustion"
+        min_severity: "WARNING"
+        description: "Cluster remaining capacity is below safety threshold"
+
+      - alert_sub_type: "HA"
+        name: "vSphere HA Failover Capacity Compromised"
+        min_severity: "IMMEDIATE"
+        description: "Insufficient HA capacity to survive configured host failures"
+
+      - alert_sub_type: "DRS"
+        name: "DRS Imbalance / Migration Errors"
+        min_severity: "INFO"
+        description: "DRS cluster imbalance detected or vMotion failures"
+
+  # ----------------------------------------------------------------------------
+  # Object Type: Datastore (vSAN, VMFS, NFS Datastores)
+  # ----------------------------------------------------------------------------
+  Datastore:
+    description: "Datastore capacity and storage latency metrics"
+    alert_filters:
+      - alert_sub_type: "CAPACITY"
+        name: "Datastore Low Free Space Alert"
+        min_severity: "IMMEDIATE"
+        description: "Datastore capacity usage exceeded 90% or 95% threshold"
+
+      - alert_sub_type: "PERFORMANCE"
+        name: "Datastore High I/O Latency Alert"
+        min_severity: "WARNING"
+        description: "Storage array response time exceeded 20ms threshold"
+
+      - alert_sub_type: "AVAILABILITY"
+        name: "Datastore Inaccessible / Unreachable"
+        min_severity: "CRITICAL"
+        description: "Datastore volume lost connection to all host HBAs"

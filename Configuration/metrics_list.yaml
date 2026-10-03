@@ -1,0 +1,162 @@
+# ==============================================================================
+# VCF Operations 9 - Metric Collection Configuration
+# ==============================================================================
+# Format: YAML (Human-Friendly, Readable, Supports Comments)
+# Description: Defines the metrics to be collected every 1 minute per object type.
+# Note: All metrics listed are active by default. To disable a metric, comment out its block.
+# ==============================================================================
+
+version: "1.0"
+
+# Collection control flags
+settings:
+  default_polling_interval_seconds: 60
+  collect_instanced_metrics: false # Set true to collect per-core / per-disk metrics
+
+# Metrics grouped by VCF Operations object type (resourceKind)
+object_types:
+
+  # ----------------------------------------------------------------------------
+  # Object Type: VirtualMachine
+  # ----------------------------------------------------------------------------
+  VirtualMachine:
+    description: "Virtual Machine performance metrics"
+    metrics:
+      - key: "cpu|usage_average"
+        name: "CPU Usage (%)"
+        unit: "percent"
+        description: "Percentage of CPU actively used by the VM"
+
+      - key: "cpu|usagemhz_average"
+        name: "CPU Usage (MHz)"
+        unit: "MHz"
+        description: "CPU frequency consumed by the VM in MHz"
+
+      - key: "cpu|ready_summation"
+        name: "CPU Ready Time (ms)"
+        unit: "milliseconds"
+        description: "Time the VM was ready to run but waiting for CPU scheduler"
+
+      - key: "mem|usage_average"
+        name: "Memory Usage (%)"
+        unit: "percent"
+        description: "Percentage of guest memory actively used"
+
+      - key: "mem|consumed_average"
+        name: "Memory Consumed (KB)"
+        unit: "kilobytes"
+        description: "Amount of host physical memory allocated to the VM"
+
+      - key: "virtualDisk|totalLatency_average"
+        name: "Virtual Disk Total Latency (ms)"
+        unit: "milliseconds"
+        description: "Total I/O latency experienced by the VM virtual disks"
+
+      - key: "virtualDisk|readIOPS_latest"
+        name: "Virtual Disk Read IOPS"
+        unit: "iops"
+        description: "Number of read operations per second"
+
+      - key: "virtualDisk|writeIOPS_latest"
+        name: "Virtual Disk Write IOPS"
+        unit: "iops"
+        description: "Number of write operations per second"
+
+      - key: "net|usage_average"
+        name: "Network Throughput (KBps)"
+        unit: "KBps"
+        description: "Combined network transmit and receive rate"
+
+  # ----------------------------------------------------------------------------
+  # Object Type: HostSystem (ESXi Hypervisor Host)
+  # ----------------------------------------------------------------------------
+  HostSystem:
+    description: "ESXi Physical Host metrics"
+    metrics:
+      - key: "cpu|usage_average"
+        name: "Host CPU Usage (%)"
+        unit: "percent"
+        description: "Total CPU usage across all physical cores"
+
+      - key: "mem|usage_average"
+        name: "Host Memory Usage (%)"
+        unit: "percent"
+        description: "Percentage of host physical memory consumed"
+
+      - key: "mem|swapused_average"
+        name: "Host Memory Swap Used (KB)"
+        unit: "kilobytes"
+        description: "Amount of host memory swapped to disk"
+
+      - key: "net|usage_average"
+        name: "Host Network Usage (KBps)"
+        unit: "KBps"
+        description: "Physical NIC network throughput"
+
+      # Disabled metric example (commented out):
+      # - key: "hardware|power_usage"
+      #   name: "Host Power Draw (Watts)"
+      #   unit: "watts"
+      #   description: "Physical host power consumption in Watts"
+
+  # ----------------------------------------------------------------------------
+  # Object Type: ClusterComputeResource (vSphere Cluster)
+  # ----------------------------------------------------------------------------
+  ClusterComputeResource:
+    description: "vSphere Cluster aggregate capacity & utilization metrics"
+    metrics:
+      - key: "cpu|capacity_usage_pct"
+        name: "Cluster CPU Usage (%)"
+        unit: "percent"
+        description: "Aggregate CPU consumption across all cluster hosts"
+
+      - key: "mem|capacity_usage_pct"
+        name: "Cluster Memory Usage (%)"
+        unit: "percent"
+        description: "Aggregate Memory consumption across all cluster hosts"
+
+      - key: "summary|total_number_vms"
+        name: "Total Virtual Machines"
+        unit: "count"
+        description: "Total number of VMs registered in the cluster"
+
+      - key: "summary|number_running_vms"
+        name: "Running Virtual Machines"
+        unit: "count"
+        description: "Number of powered-on VMs in the cluster"
+
+      - key: "ha|hostFaultTolerance"
+        name: "HA Host Fault Tolerance"
+        unit: "count"
+        description: "Remaining host failure tolerance in the cluster"
+
+  # ----------------------------------------------------------------------------
+  # Object Type: Datastore (vSAN, VMFS, NFS Datastores)
+  # ----------------------------------------------------------------------------
+  Datastore:
+    description: "Datastore capacity and storage latency metrics"
+    metrics:
+      - key: "diskspace|usage_capacity_pct"
+        name: "Datastore Usage (%)"
+        unit: "percent"
+        description: "Percentage of datastore capacity used"
+
+      - key: "diskspace|capacity"
+        name: "Total Capacity (GB)"
+        unit: "gigabytes"
+        description: "Total raw storage capacity of the datastore"
+
+      - key: "diskspace|freespace"
+        name: "Free Space (GB)"
+        unit: "gigabytes"
+        description: "Available unallocated space on the datastore"
+
+      - key: "datastore|totalReadLatency_average"
+        name: "Datastore Read Latency (ms)"
+        unit: "milliseconds"
+        description: "Average read latency on the storage array"
+
+      - key: "datastore|totalWriteLatency_average"
+        name: "Datastore Write Latency (ms)"
+        unit: "milliseconds"
+        description: "Average write latency on the storage array"

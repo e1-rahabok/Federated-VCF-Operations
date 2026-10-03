@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  vcf-ops-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: vcf-federated-ops:latest
+    container_name: vcf_federated_ops
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=file:/app/data/vcf_ops.db
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      - JWT_SECRET=${JWT_SECRET:-super_secret_jwt_key_change_in_production}
+      - POLLING_INTERVAL_SECONDS=60
+      - RETENTION_RAW_HOURS=48
+      - RETENTION_SUMMARY_DAYS=90
+      - LOG_LEVEL=info
+    volumes:
+      - vcf_data:/app/data
+      - ./Configuration:/app/Configuration:ro
+
+volumes:
+  vcf_data:
