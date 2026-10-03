@@ -1281,7 +1281,7 @@ const server = http.createServer((req, res) => {
         let kindTabsHtml = '<div style="display:flex; gap:8px; margin-bottom:12px; border-bottom:1px solid #334155; padding-bottom:8px;">';
         kinds.forEach(function(k) {
           const activeCls = k === telemetryConfigState.activeKind ? 'btn-primary' : 'btn-secondary';
-          kindTabsHtml += '<button class="' + activeCls + '" style="font-size:12px; padding:4px 10px;" onclick="setConfigActiveKind(\'' + k + '\')">' + k + '</button>';
+          kindTabsHtml += '<button class="' + activeCls + '" style="font-size:12px; padding:4px 10px;" onclick="setConfigActiveKind(&quot;' + k + '&quot;)">' + k + '</button>';
         });
         kindTabsHtml += '</div>';
 
@@ -1295,7 +1295,7 @@ const server = http.createServer((req, res) => {
             '<tr><td><code>mem|usage_average</code></td><td>Memory Usage (%)</td><td>percent</td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
             '<tr><td><code>virtualDisk|totalLatency_average</code></td><td>Virtual Disk Total Latency (ms)</td><td>milliseconds</td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
             '</tbody></table>' +
-            '<div style="margin-top:12px;"><button class="btn-secondary" style="font-size:12px;" onclick="alert(\'Added new metric key row to \' + telemetryConfigState.activeKind)">+ Add Metric Key to ' + telemetryConfigState.activeKind + '</button></div>';
+            '<div style="margin-top:12px;"><button class="btn-secondary" style="font-size:12px;" onclick="alert(&quot;Added new metric key row to &quot; + telemetryConfigState.activeKind)">+ Add Metric Key to ' + telemetryConfigState.activeKind + '</button></div>';
         } else {
           body.innerHTML = kindTabsHtml +
             '<table>' +
@@ -1306,7 +1306,7 @@ const server = http.createServer((req, res) => {
             '<tr><td><code>STORAGE</code></td><td>VM Virtual Disk Latency Alert</td><td><span class="badge badge-critical">IMMEDIATE</span></td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
             '<tr><td><code>AVAILABILITY</code></td><td>VM Guest OS Down / Unresponsive Alert</td><td><span class="badge badge-critical">CRITICAL</span></td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
             '</tbody></table>' +
-            '<div style="margin-top:12px;"><button class="btn-secondary" style="font-size:12px;" onclick="alert(\'Added new alert filter row to \' + telemetryConfigState.activeKind)">+ Add Alert Filter to ' + telemetryConfigState.activeKind + '</button></div>';
+            '<div style="margin-top:12px;"><button class="btn-secondary" style="font-size:12px;" onclick="alert(&quot;Added new alert filter row to &quot; + telemetryConfigState.activeKind)">+ Add Alert Filter to ' + telemetryConfigState.activeKind + '</button></div>';
         }
       }
 

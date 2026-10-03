@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
+import vm from 'node:vm';
 
 test('REST API Gateway Integration Tests - healthz endpoint', async () => {
   const res = await fetch('http://localhost:3000/healthz');
@@ -70,3 +71,22 @@ for (const route of spaRoutes) {
     assert.ok(html.includes('async function renderCurrentView()'), `Route ${route} missing SPA controller script`);
   });
 }
+
+// --- Test 17: Client JavaScript AST Compilation & Syntax Validation ---
+
+test('Test 17: Client JavaScript AST Compilation Test - JS Script Syntax Verification', async () => {
+  const res = await fetch('http://localhost:3000/');
+  assert.strictEqual(res.status, 200);
+  const html = await res.text();
+
+  const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
+  assert.ok(scriptMatch, 'HTML response must contain a <script> tag');
+
+  const jsCode = scriptMatch[1];
+  assert.ok(jsCode.length > 100, 'Script block must contain executable JavaScript code');
+
+  // Verify that the browser script compiles cleanly without syntax errors
+  assert.doesNotThrow(() => {
+    new vm.Script(jsCode);
+  }, 'Client-side script in HTML must compile with zero JavaScript syntax errors');
+});

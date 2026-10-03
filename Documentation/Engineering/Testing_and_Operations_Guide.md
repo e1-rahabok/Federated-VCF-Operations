@@ -34,6 +34,7 @@ The application enforces the **Testing Pyramid**:
 * **Database & Route Isolation**: Integration tests execute against isolated server routes and SQLite database.
 * **Mandatory Test Scenarios**:
   * **Full Web Route Coverage**: Validates that all single-page application routes (`/`, `/alerts`, `/alerts/:id`, `/metrics`, `/objects/:uuid`, `/settings`) return `HTTP 200 OK` with complete HTML layout structure and valid client controller script tags.
+  * **Client JS AST Compilation (Test 17)**: Extracts embedded browser `<script>` code from HTML responses and compiles it using `node:vm` `Script` to verify 100% syntax validity and prevent blank screen regressions.
   * **API Gateway Endpoints**: Validates `/healthz`, `/readyz`, `/api/v1/alerts`, `/api/v1/metrics/query`, `/api/v1/system/config/metrics`, and `/api/v1/system/config/alerts`.
   * **Deduplication Watermarks**: Verifies duplicate metric payload insertions are silently dropped (`INSERT OR IGNORE`).
   * **RBAC Controls**: Verifies middleware rejects unauthorized modifications.
