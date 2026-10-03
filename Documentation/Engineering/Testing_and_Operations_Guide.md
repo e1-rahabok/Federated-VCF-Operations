@@ -31,10 +31,12 @@ The application enforces the **Testing Pyramid**:
 
 ## 1.2 Integration Testing Guidelines (`Supertest` + Mock VCF Server)
 * **Mock Server (MSW / Nock)**: Intercepts outgoing HTTP calls to `/suite-api/api/resources/stats/query` and `/suite-api/api/alerts`.
-* **Database Isolation**: Integration tests execute against an isolated in-memory SQLite database (`DATABASE_URL="file::memory:"`).
-* **Test Scenarios**:
-  * Verify duplicate metric payload insertions are silently dropped (`INSERT OR IGNORE`).
-  * Verify RBAC middleware rejects unauthenticated or `VIEWER` attempts to create VCF instance connections (`403 Forbidden`).
+* **Database & Route Isolation**: Integration tests execute against isolated server routes and SQLite database.
+* **Mandatory Test Scenarios**:
+  * **Full Web Route Coverage**: Validates that all single-page application routes (`/`, `/alerts`, `/alerts/:id`, `/metrics`, `/objects/:uuid`, `/settings`) return `HTTP 200 OK` with complete HTML layout structure and valid client controller script tags.
+  * **API Gateway Endpoints**: Validates `/healthz`, `/readyz`, `/api/v1/alerts`, `/api/v1/metrics/query`, `/api/v1/system/config/metrics`, and `/api/v1/system/config/alerts`.
+  * **Deduplication Watermarks**: Verifies duplicate metric payload insertions are silently dropped (`INSERT OR IGNORE`).
+  * **RBAC Controls**: Verifies middleware rejects unauthorized modifications.
 
 ## 1.3 End-to-End (E2E) Testing Guidelines (`Playwright`)
 * **E2E Workflows Automated**:

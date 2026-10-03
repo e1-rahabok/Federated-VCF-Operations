@@ -229,6 +229,7 @@ sequenceDiagram
 * **REQ-USA-003**: **Zero Configuration Dashboard Defaults**: Opening the web app MUST instantly show active alerts and key cluster metrics without requiring manual queries.
 * **REQ-USA-004**: **Workspace Persistence**: The UI MUST remember the user's last selected VCF instances, filters, and dashboard layout across browser sessions.
 * **REQ-USA-005**: **Clear Error Messages**: The UI MUST show user-friendly notifications when network errors or invalid input values occur.
+* **REQ-UI-027**: **Defensive Component Rendering & Error Boundary**: The client-side application controller MUST wrap view rendering in top-level `try/catch` error boundaries and use defensive data checks (`Array.isArray()`, fallback objects) so network anomalies, API shape changes, or rendering exceptions display recovery notification cards rather than blank screens.
 
 ---
 ---
@@ -271,3 +272,8 @@ The system MUST provide an administrative user interface and environment variabl
 * **REQ-TEC-018**: **API Network Timeout**: Adjustable request timeout per VCF instance call (default: 15 seconds).
 * **REQ-TEC-019**: **Auto-Prune Execution Time**: Daily schedule time for database cleanup cron jobs (default: 00:00 UTC).
 * **REQ-TEC-020**: **Log Detail Level**: Configurable backend log levels (`DEBUG`, `INFO`, `WARN`, `ERROR`).
+
+---
+
+## 5. Quality Assurance & Automated Route Validation Requirements
+* **REQ-TEC-021**: **Automated Full-Route HTML & API Integration Testing**: The integration test suite MUST execute automated HTTP validation across all web application routes (`/`, `/alerts`, `/alerts/:id`, `/metrics`, `/objects/:uuid`, `/settings`) and API endpoints (`/healthz`, `/readyz`, `/api/v1/alerts`, `/api/v1/metrics/query`, `/api/v1/system/config/metrics`, `/api/v1/system/config/alerts`) to guarantee 100% route coverage and prevent blank screen or broken link regressions.

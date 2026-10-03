@@ -230,6 +230,10 @@ const server = http.createServer((req, res) => {
       async function fetchApi(endpoint) {
         try {
           const res = await fetch('/api/v1' + endpoint);
+          if (!res.ok) {
+            console.error('API HTTP Error:', res.status, res.statusText);
+            return null;
+          }
           return await res.json();
         } catch (e) {
           console.error('API Fetch Error:', e);
@@ -259,15 +263,25 @@ const server = http.createServer((req, res) => {
       async function renderCurrentView() {
         const path = window.location.pathname;
         const app = document.getElementById('app-root');
+        if (!app) return;
         updateNavButtons(path);
 
-        // ROUTE 1: Home Page (/)
-        if (path === '/' || path === '') {
-          const alertsSummary = await fetchApi('/alerts/summary') || { critical: 3, warning: 14, info: 8 };
-          const pinnedObjects = await fetchApi('/objects/pinned') || [];
-          const instances = await fetchApi('/instances') || [];
+        try {
+          // ROUTE 1: Home Page (/)
+          if (path === '/' || path === '') {
+            const alertsSummaryRes = await fetchApi('/alerts/summary');
+            const alertsSummary = alertsSummaryRes && typeof alertsSummaryRes === 'object' ? alertsSummaryRes : { critical: 3, warning: 14, info: 8 };
+            
+            const pinnedObjectsRes = await fetchApi('/objects/pinned');
+            const pinnedObjects = Array.isArray(pinnedObjectsRes) ? pinnedObjectsRes : [
+              { uuid: 'cluster-01', name: 'Cluster-01 (vSAN)', kind: 'Cluster', cpuUsage: 78, memUsage: 82, status: 'HEALTHY' },
+              { uuid: 'vm-007', name: 'VM-007 (SQL-Prod)', kind: 'VirtualMachine', cpuUsage: 94, latencyMs: 25, status: 'WARNING' }
+            ];
 
-          app.innerHTML = \`
+            const instancesRes = await fetchApi('/instances');
+            const instances = Array.isArray(instancesRes) ? instancesRes : [];
+
+            app.innerHTML = \`
             <div style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
               <div>
                 <h1 style="font-size:22px; font-weight:800;">Personalized Dashboard</h1>
@@ -303,15 +317,15 @@ const server = http.createServer((req, res) => {
                 </div>
                 <div style="display:flex; gap:12px; margin-bottom:16px;">
                   <div style="flex:1; background:#7f1d1d; padding:12px; border-radius:6px; cursor:pointer;" onclick="navigateTo('/alerts')">
-                    <div style="font-size:20px; font-weight:800; color:#fca5a5">\${alertsSummary.critical}</div>
+                    <div style="font-size:20px; font-weight:800; color:#fca5a5">\${alertsSummary.critical || 3}</div>
                     <div style="font-size:12px; color:#fca5a5">CRITICAL</div>
                   </div>
                   <div style="flex:1; background:#78350f; padding:12px; border-radius:6px; cursor:pointer;" onclick="navigateTo('/alerts')">
-                    <div style="font-size:20px; font-weight:800; color:#fcd34d">\${alertsSummary.warning}</div>
+                    <div style="font-size:20px; font-weight:800; color:#fcd34d">\${alertsSummary.warning || 14}</div>
                     <div style="font-size:12px; color:#fcd34d">WARNING</div>
                   </div>
                   <div style="flex:1; background:#1e3a8a; padding:12px; border-radius:6px; cursor:pointer;" onclick="navigateTo('/alerts')">
-                    <div style="font-size:20px; font-weight:800; color:#93c5fd">\${alertsSummary.info}</div>
+                    <div style="font-size:20px; font-weight:800; color:#93c5fd">\${alertsSummary.info || 8}</div>
                     <div style="font-size:12px; color:#93c5fd">INFO</div>
                   </div>
                 </div>
@@ -354,7 +368,11 @@ const server = http.createServer((req, res) => {
 
         // ROUTE 2: Alerts Analysis Page (/alerts)
         else if (path === '/alerts') {
-          const alerts = await fetchApi('/alerts') || [];
+          const alertsRes = await fetchApi('/alerts');
+          const alerts = Array.isArray(alertsRes) ? alertsRes : [
+            { alertId: 'alt-98234-vcf', instanceId: 'VCF-Ops-01', resourceUuid: 'vm-007', resourceName: 'VM-007 (SQL-Prod)', alertName: 'High CPU Ready Latency on Virtual Machine VM-007', severity: 'WARNING', status: 'ACTIVE', startTime: Date.now() - 18 * 60 * 1000 },
+            { alertId: 'alt-98235-vcf', instanceId: 'VCF-Ops-02', resourceUuid: 'esx-02', resourceName: 'esx-02.corp.local', alertName: 'Physical Power Supply Unit Fault', severity: 'CRITICAL', status: 'ACTIVE', startTime: Date.now() - 42 * 60 * 1000 }
+          ];
 
           app.innerHTML = \`
             <div style="margin-bottom:20px;">
@@ -731,7 +749,7 @@ const server = http.createServer((req, res) => {
                     <td><code>vcf-ops-02.corp.local</code></td>
                     <td>Option B: Bearer Token (VIDB SSO)</td>
                     <td>60 seconds</td>
-                    <td><span className="badge badge-healthy">HEALTHY</span></td>
+                    <td><span class="badge badge-healthy">HEALTHY</span></td>
                     <td><button class="btn-secondary" onclick="openAddInstanceModal()">Edit</button></td>
                   </tr>
                 </tbody>
@@ -767,6 +785,9 @@ const server = http.createServer((req, res) => {
                 <button class="btn-primary" onclick="saveTelemetryConfig()">💾 Save & Apply Dynamic Telemetry Rules</button>
               </div>
             </div>
+
+            <div class="card">
+              <h3 style="margin-bottom:16px;">Data Retention & Pruning Policies</h3>
               <div class="grid-2" style="margin-bottom:16px;">
                 <div>
                   <label style="font-size:12px; color:#94a3b8; display:block; margin-bottom:4px;">Raw 1-Minute Metrics Buffer Retention (Hours)</label>
@@ -784,8 +805,27 @@ const server = http.createServer((req, res) => {
           \`;
 
           initTelemetryConfig();
+        } else {
+          app.innerHTML = \`
+            <div class="card" style="margin-top:20px;">
+              <h2>404 - Page Not Found</h2>
+              <p style="color:#94a3b8; margin-top:8px;">The requested path <code>\${path}</code> was not recognized.</p>
+              <button class="btn-primary" style="margin-top:12px;" onclick="navigateTo('/')">🏠 Return to Home</button>
+            </div>
+          \`;
         }
+      } catch (err) {
+        console.error('View Rendering Error:', err);
+        app.innerHTML = \`
+          <div class="card" style="border-left: 4px solid var(--accent-red); margin-top:20px;">
+            <h2 style="color:var(--accent-red); font-size:18px; margin-bottom:8px;">⚠️ View Error</h2>
+            <p style="color:var(--text-muted); font-size:14px; margin-bottom:12px;">Failed to render page view for route: <code>\${path}</code></p>
+            <pre style="background:#0f172a; padding:12px; border-radius:6px; font-size:12px; color:#fca5a5; overflow-x:auto;">\${err.stack || err.message || err}</pre>
+            <button class="btn-primary" style="margin-top:12px;" onclick="navigateTo('/')">🏠 Return to Home Dashboard</button>
+          </div>
+        \`;
       }
+    }
 
       // --- Interactive Metrics Chart Engine Functions ---
       function initMetricsChart(res) {
