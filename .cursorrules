@@ -1,0 +1,24 @@
+# Strict Engineering & Anti-Mocking Standards
+
+These standards are mandatory for all human and AI developers working on Federated VCF Operations 9.
+
+## 1. Strict No-Mocks Policy
+- **No Hardcoded Placeholders**: Never use hardcoded strings, static table rows, mock status values, or dummy JSON fallbacks in view templates.
+- **No Simulated Math**: Never use `Math.random()`, `Math.sin()`, or synthetic loops to generate metrics, alerts, or chart points. Every metric and chart must be queried from real database records or configuration files via REST API.
+- **No Dummy Popups**: Never stub user actions with `alert("Done!")`. Every save, export, toggle, or delete action must perform a real HTTP request and persist to disk or database. Real file downloads must be triggered for CSV/dataset exports.
+- **Backend First**: If an API route or database table does not exist to support a UI component, build the backend schema and REST endpoint FIRST before creating the UI.
+
+## 2. Real State Mutation & Data Flow Testing
+- **No Shallow Route Tests**: Tests that only check `res.status === 200` or `assert.ok(html.includes('div'))` are forbidden as sole validation.
+- **Full Mutation Lifecycle**: Integration tests must execute the complete cycle:
+  1. Mutate data (e.g. insert record into SQLite or modify YAML).
+  2. Query the REST API or render the view.
+  3. Assert that the exact mutated values and state appear in the response and DOM.
+
+## 3. Architecture & Code Separation
+- **No Inlined Multi-Line Client Applications**: Do not cram large multi-line client applications, DOM manipulations, or CSS stylesheets into server-side template literals (`src/backend/server.ts`).
+- **Clean Boundary**: Keep backend routing, database transactions, and ingestion scheduler in backend modules (`src/backend/`). Keep frontend components, hooks, and views in frontend modules (`src/frontend/`).
+- **Template Escaping Safety**: When rendering server templates, avoid unescaped regexes (`\s`, `\n`) that degrade during string interpolation.
+
+## 4. Mandatory Anti-Mocking Audit
+- Before declaring any milestone or feature complete, perform an audit across all modified pages to ensure zero static mocks, simulated data, or dead buttons exist.

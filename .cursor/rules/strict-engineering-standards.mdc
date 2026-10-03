@@ -1,0 +1,63 @@
+---
+description: Strict anti-mocking, real data binding, and comprehensive testing standards
+alwaysApply: true
+---
+
+# Strict Engineering & Anti-Mocking Standards
+
+All code contributions must adhere to these non-negotiable rules.
+
+## 1. Strict No-Mocks Policy
+
+Every UI view, table, chart, and button MUST bind directly to real backend API endpoints and SQLite database records or YAML configuration files.
+
+### ❌ BAD (Prohibited)
+```typescript
+// Hardcoded table rows in HTML or React
+<tr><td>VCF-Ops-01</td><td>vcf-ops-01.corp.local</td><td>HEALTHY</td></tr>
+
+// Simulated fake chart math
+const fakePoints = Array.from({ length: 50 }, (_, i) => Math.sin(i / 6) * 30 + 50);
+
+// Fake alert() popups
+<button onclick="alert('Saved successfully!')">Save</button>
+```
+
+### ✅ GOOD (Required)
+```typescript
+// Fetch from real API backed by SQLite
+const instances = await fetchApi('/instances');
+renderInstancesTable(instances);
+
+// Query real metrics timeseries from database
+const points = await fetchApi(`/metrics/query?resourceUuid=${uuid}&statKeys=${key}&resolution=5m`);
+
+// Real HTTP mutations with user feedback
+async function saveInstance(data) {
+  const res = await fetch('/api/v1/instances', { method: 'POST', body: JSON.stringify(data) });
+  if (res.ok) await refreshInstancesList();
+}
+```
+
+## 2. Real State Mutation & Data Flow Testing
+
+Integration tests must verify real end-to-end data flow:
+1. **Mutate**: Insert/update record in SQLite or update YAML configuration.
+2. **Execute**: Call the REST API endpoint or execute the client view controller in virtual DOM.
+3. **Assert**: Verify that the exact mutated values appear in the response and rendered DOM elements.
+
+Testing only `res.status === 200` without asserting data content is strictly forbidden.
+
+## 3. Separation of Concerns & Template Safety
+
+- Keep backend and frontend code in their respective directory trees (`src/backend` vs `src/frontend`).
+- Avoid multi-thousand-line client applications embedded in server template literals.
+- If server-rendered strings are required, never use raw unescaped regexes (`\s`, `\n`) that degrade during template interpolation.
+
+## 4. Mandatory Anti-Mocking Audits
+
+Before finishing any task, audit the modified files line-by-line to verify:
+- Zero static HTML fallback rows.
+- Zero `Math.random()` or `Math.sin()` generators.
+- Zero fake `alert('Done')` handlers.
+- All CSV exports generate and download real binary/text blobs.
