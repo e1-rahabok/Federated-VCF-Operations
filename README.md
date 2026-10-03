@@ -25,54 +25,33 @@ It polls metrics, objects, and alerts every 1 minute from multiple VCF Operation
 ## 📁 Repository Directory Layout
 
 ```mermaid
-flowchart LR
-    direction LR
+graph LR
+    Root[📁 federated-vcf-ops] --> GH[📁 .github/]
+    GH --> GH1[⚙️ workflows/ci.yml — CI build pipeline]
+    GH --> GH2[📋 ISSUE_TEMPLATE/ — Bug report & feature templates]
+    GH --> GH3[📝 PULL_REQUEST_TEMPLATE.md — PR guidelines]
 
-    subgraph Root ["📁 federated-vcf-ops (Repository Root)"]
-        direction TB
-        env["🔑 .env.example — Environment variable template"]
-        dock["🐳 Dockerfile & docker-compose.yml — Production container specs"]
-        pkg["📦 package.json — Node.js project configuration"]
-        read["📖 README.md & LICENSE — Overview & MIT License"]
-    end
+    Root --> CONF[📁 Configuration/]
+    CONF --> C1[📄 metrics_list.yaml — Metrics collected per object type]
+    CONF --> C2[📄 alerts_list.yaml — Alert filters monitored per object type]
 
-    subgraph GH ["📁 .github/"]
-        direction TB
-        ci["⚙️ workflows/ci.yml — GitHub Actions CI pipeline"]
-        it["📋 ISSUE_TEMPLATE/ — Bug report & feature templates"]
-        pr["📝 PULL_REQUEST_TEMPLATE.md — PR guidelines"]
-    end
+    Root --> DOC[📁 Documentation/]
+    DOC --> D1[📄 Requirements.md — Functional features & Mermaid user flows]
+    DOC --> D2[📄 Solution.md — Technical solution architecture & ERDs]
+    DOC --> D3[📄 Architecture.md — Architecture overview & data flow]
+    DOC --> D4[📄 Configuration_Guide.md — Config guide]
 
-    subgraph CONF ["📁 Configuration/"]
-        direction TB
-        m["📄 metrics_list.yaml — Metrics collected per object type"]
-        a["📄 alerts_list.yaml — Alert filters monitored per object type"]
-    end
+    Root --> SRC[📁 src/]
+    SRC --> B[📁 backend/ — Ingestion engine & REST API]
+    SRC --> F[📁 frontend/ — React UI pages & components]
 
-    subgraph DOC ["📁 Documentation/"]
-        direction TB
-        req["📄 Requirements.md — Functional features & Mermaid user flows"]
-        sol["📄 Solution.md — Technical solution architecture & ERDs"]
-        arch["📄 Architecture.md — System architecture & data flow"]
-        cfg["📄 Configuration_Guide.md — Metric & alert configuration guide"]
-    end
+    Root --> SCR[📁 scripts/]
+    SCR --> S1[📜 prune_data.ps1 — Database retention cleanup]
 
-    subgraph SRC ["📁 src/"]
-        direction TB
-        back["📁 backend/ — Node.js Ingestion Engine, DB & REST API"]
-        front["📁 frontend/ — React 18 Web UI (Pages & Components)"]
-    end
-
-    subgraph SCR ["📁 scripts/"]
-        direction TB
-        ps["📜 prune_data.ps1 — Database retention cleanup script"]
-    end
-
-    Root --> GH
-    Root --> CONF
-    Root --> DOC
-    Root --> SRC
-    Root --> SCR
+    Root --> ENV[🔑 .env.example — Environment template]
+    Root --> DOCK[🐳 Dockerfile & docker-compose.yml — Container specs]
+    Root --> PKG[📦 package.json — Project configuration]
+    Root --> READ[📖 README.md & LICENSE — Overview & MIT License]
 ```
 
 ---
