@@ -28,22 +28,41 @@ This directory contains the detailed specifications, visual wireframes, user int
 
 Every page (except `/login`) is enclosed within the **Global Application Shell**.
 
-```
-+-----------------------------------------------------------------------------------------+
-| [Logo] Federated VCF Ops | Home  Alerts  Metrics  Settings | [Instances (All)] [Time: 24h] |
-+-----------------------------------------------------------------------------------------+
-| [System Ingestion Health Status Banner: All 5 VCF Instances Connected (Last Poll: 10s)]  |
-+-----------------------------------------------------------------------------------------+
-| PAGE CONTENT AREA                                                                       |
-| ...                                                                                     |
-+-----------------------------------------------------------------------------------------+
+### Graphical Global Application Shell Diagram
+
+```mermaid
+graph TD
+    subgraph Global_Shell ["Global Application Shell Layout"]
+        direction TB
+        
+        subgraph Navigation_Bar ["Top Navigation Header"]
+            N1["🏷️ Brand Logo: Federated VCF Ops"]
+            N2["🔗 Nav Links: Home | Alerts | Metrics | Settings"]
+            N3["🎯 Instance Selector: All / Custom VCF Instances"]
+            N4["📅 Time Range Picker: Last 1h | 6h | 24h | 7d | Custom"]
+        end
+
+        subgraph System_Banner ["Ingestion System Health Banner"]
+            B1["🟢 Status: All connected VCF instances healthy (Last Poll: 10s ago)"]
+        end
+
+        subgraph Dynamic_View ["Page Content Container"]
+            P1["🖥️ Active Route Page View (Home / Alerts / Metrics / Settings / Detail Pages)"]
+        end
+    end
+
+    Navigation_Bar --> System_Banner
+    System_Banner --> Dynamic_View
 ```
 
-### Global Header Controls
-1. **Global Navigation Links**: Instant route switching (`/`, `/alerts`, `/metrics`, `/settings`).
-2. **Global Target Instance Selector**: Multi-select dropdown filtering all page data by VCF instance.
-3. **Global Time Range Picker**: Select preset windows (`Last 1 Hour`, `6 Hours`, `24 Hours`, `7 Days`, `30 Days`, `Custom Range`).
-4. **Real-time Health Indicator**: Live status badge showing polling loop health and last collection timestamp.
+### Global Header Controls Breakdown
+
+| Control | Type | Function & Behavior |
+| :--- | :--- | :--- |
+| **Global Navigation Links** | Nav Menu Tabs | Instant route switching (`/`, `/alerts`, `/metrics`, `/settings`). |
+| **Global Target Instance Selector** | Multi-Select Dropdown | Filter all page queries across single, multiple, or all connected VCF Operations instances. |
+| **Global Time Range Picker** | Presets & Custom Picker | Select time window (`Last 1 Hour`, `6 Hours`, `24 Hours`, `7 Days`, `30 Days`, `Custom Range`). |
+| **Real-Time Health Indicator** | Status Badge | Live telemetry badge showing scheduler polling health and timestamp of last ingestion loop. |
 
 ---
 

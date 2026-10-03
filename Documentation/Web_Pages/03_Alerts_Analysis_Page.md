@@ -6,23 +6,45 @@
 
 ---
 
-## 📐 Visual Layout & Wireframe
+## 📐 Graphical Visual Layout & Wireframe
 
+```mermaid
+graph TD
+    subgraph Alerts_Workspace ["Alerts Analysis Workspace"]
+        direction TB
+
+        subgraph Filter_Bar ["Faceted Filter & Search Toolbar"]
+            F1["🎯 VCF Instance Dropdown"]
+            F2["🚦 Severity Selector: Critical | Immediate | Warning | Info"]
+            F3["📦 Resource Kind: VM | Host | Cluster | Datastore"]
+            F4["🔍 Text Search: Alert Name / Resource Name"]
+        end
+
+        subgraph Viz_Row ["Interactive Visualization Row"]
+            direction LR
+            V1["📊 Chart 1: Alert Volume Timeline (Stacked Bar Chart over Time)"]
+            V2["🍩 Chart 2: Severity Distribution (Interactive Donut Chart)"]
+        end
+
+        subgraph Grid_Section ["Alert Data Table Container (TanStack Virtualized Grid)"]
+            G1["📋 Data Columns: Severity Badges | Instance | Target Resource | Alert Name | Triggered Time | Actions"]
+            G2["⚡ Row Actions: Click Row ➔ Navigate to Detail Alert Page (/alerts/:alertId)"]
+            G3["📥 Data Export: CSV Download Button"]
+        end
+    end
+
+    Filter_Bar --> Viz_Row
+    Viz_Row --> Grid_Section
 ```
-+-----------------------------------------------------------------------------------------+
-| FILTERS: [VCF Instance: All v] [Severity: Critical, Warning v] [Kind: VM, Host v] [Search]|
-+-----------------------------------------------------+-----------------------------------+
-| CHART 1: Alert Volume Timeline (Stacked Bar)        | CHART 2: Severity Breakdown (Donut|
-| [=================== Timeline Chart =============]  | [ (C: 15%)(W: 65%)(I: 20%) Donut ]|
-+-----------------------------------------------------+-----------------------------------+
-| ALERTS DATA GRID (TanStack Table)                                                       |
-| Severity | Instance    | Target Resource | Alert Name              | Triggered Time      |
-|----------+-------------+-----------------+-------------------------+---------------------|
-| CRITICAL | VCF-Ops-01  | Host-ESX-02     | Physical PSU Fault      | 2026-10-03 10:15 UTC|
-| WARNING  | VCF-Ops-02  | VM-007          | High CPU Ready Latency  | 2026-10-03 10:18 UTC|
-| ...                                                                                     |
-+-----------------------------------------------------------------------------------------+
-```
+
+### Component & Region Layout Breakdown
+
+| Component | Panel Position | Function & User Interactions |
+| :--- | :--- | :--- |
+| **Filter Toolbar** | Top Sticky Bar | Multi-select dropdowns for Instance, Severity, Status, Kind, and instant text search. Syncs with URL parameters. |
+| **Alert Timeline Chart** | Top-Left Panel (60% W) | Stacked bar chart showing alert frequencies over time. Dragging a selection box zooms into a specific time window. |
+| **Severity Donut** | Top-Right Panel (40% W) | Donut chart displaying severity proportions. Clicking a slice filters the table below by severity. |
+| **Alert Data Grid** | Bottom Full-Width Container | High-performance virtualized table. Clicking any row opens `/alerts/:alertId`. Includes CSV export button. |
 
 ---
 

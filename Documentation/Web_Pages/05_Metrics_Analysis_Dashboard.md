@@ -14,36 +14,36 @@ ASCII box art was replaced with native **Mermaid diagrams** and **Structured Com
 
 ```mermaid
 graph TD
-    subgraph Global_Header [Global Navigation & Scope Header]
-        GH1[Logo & Nav: Home | Alerts | Metrics | Settings]
-        GH2[VCF Instance Scope: All / Selected]
-        GH3[Global Time Range Selector: Last 1h | 6h | 24h | 7d | Custom]
+    subgraph Global_Header ["Global Navigation & Scope Header"]
+        GH1["Logo & Nav: Home | Alerts | Metrics | Settings"]
+        GH2["VCF Instance Scope: All / Selected"]
+        GH3["Global Time Range Selector: Last 1h | 6h | 24h | 7d | Custom"]
     end
 
-    subgraph Split_Layout [Main Metrics Workspace]
+    subgraph Split_Layout ["Main Metrics Workspace"]
         direction LR
 
-        subgraph Left_Sidebar [Left Sidebar Panel: 300px Fixed]
-            LS1[🔍 Search Resources Input]
-            LS2[🌳 Hierarchical Tree Explorer<br/>• Cluster-vSAN-01<br/>  ├─ 🖥️ Host: esx-01<br/>  └─ 💻 VM: VM-007 SQL-Prod ☑]
-            LS3[📊 Metric Category Selector<br/>☑ cpu|usage_average %<br/>☑ cpu|ready_summation ms<br/>☑ mem|usage_average %<br/>☐ virtualDisk|totalLatency ms]
-            LS4[💾 Saved View Profiles Dropdown]
+        subgraph Left_Sidebar ["Left Sidebar Panel: 320px Fixed"]
+            LS1["🔍 Search Resources Input"]
+            LS2["🌳 Hierarchical Tree Explorer<br/>• Cluster-vSAN-01<br/>  ├─ 🖥️ Host: esx-01<br/>  └─ 💻 VM: VM-007 SQL-Prod ☑"]
+            LS3["📊 Metric Category Selector<br/>☑ cpu|usage_average %<br/>☑ cpu|ready_summation ms<br/>☑ mem|usage_average %<br/>☐ virtualDisk|totalLatency ms"]
+            LS4["💾 Saved View Profiles Dropdown"]
         end
 
-        subgraph Right_Canvas [Right Main Chart Canvas: Flex Fill]
-            RC1[⚙️ Resolution Toolbar: (1-Min Raw) | [5-Min Rollup] | (1-Hour Rollup) | 📥 Export CSV / PNG]
+        subgraph Right_Canvas ["Right Main Chart Canvas: Flex Fill"]
+            RC1["⚙️ Resolution Toolbar: (1-Min Raw) | (5-Min Rollup) | (1-Hour Rollup) | 📥 Export CSV / PNG"]
             
-            subgraph Chart_Area_1 [Timeseries Chart Overlay 1: CPU Performance]
-                C1_Header[Title: CPU Utilization vs CPU Ready Time | Legend: VM-007 CPU % (Blue), VM-007 Ready ms (Orange)]
-                C1_Plot[📈 Synchronized Multi-Line Canvas with Hover Crosshair]
+            subgraph Chart_Area_1 ["Timeseries Chart Overlay 1: CPU Performance"]
+                C1_Header["Title: CPU Utilization vs CPU Ready Time | Legend: VM-007 CPU % (Blue), VM-007 Ready ms (Orange)"]
+                C1_Plot["📈 Synchronized Multi-Line Canvas with Hover Crosshair"]
             end
 
-            subgraph Chart_Area_2 [Timeseries Chart Overlay 2: Memory & Storage]
-                C2_Header[Title: Memory Consumed vs Swap Rate | Legend: VM-007 Mem % (Green)]
-                C2_Plot[📈 Synchronized Multi-Line Canvas with Drag-to-Zoom Selection Box]
+            subgraph Chart_Area_2 ["Timeseries Chart Overlay 2: Memory & Storage"]
+                C2_Header["Title: Memory Consumed vs Swap Rate | Legend: VM-007 Mem % (Green)"]
+                C2_Plot["📈 Synchronized Multi-Line Canvas with Drag-to-Zoom Selection Box"]
             end
 
-            subgraph Stat_Cards [Statistical Percentile Cards Grid]
+            subgraph Stat_Cards ["Statistical Percentile Cards Grid"]
                 SC1["📉 Min: 12.4%"]
                 SC2["📊 Max: 98.2%"]
                 SC3["📈 Avg: 45.1%"]

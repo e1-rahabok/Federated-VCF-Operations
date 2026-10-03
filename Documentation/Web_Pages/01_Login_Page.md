@@ -6,23 +6,29 @@
 
 ---
 
-## 📐 Visual Layout & Wireframe
+## 📐 Graphical Visual Layout & Wireframe
 
+```mermaid
+graph TD
+    subgraph Login_Card ["Centered User Login Modal Card"]
+        direction TB
+        L1["🔒 Application Branding: Federated VCF Operations"]
+        L2["👤 Username Input Field"]
+        L3["🔑 Password Input Field"]
+        L4["🚀 Sign In Action Button"]
+        L5["⚠️ Dynamic Alert Banner: Invalid credentials or session expired"]
+    end
 ```
-+--------------------------------------------------------+
-|                                                        |
-|                   [ Application Logo ]                 |
-|             Federated VCF Operations Portal            |
-|                                                        |
-|        Username: [_____________________________]       |
-|        Password: [_____________________________]       |
-|                                                        |
-|                    [  Sign In  ]                       |
-|                                                        |
-|  [!] Invalid credentials or session expired.           |
-|                                                        |
-+--------------------------------------------------------+
-```
+
+### Component & Region Layout Breakdown
+
+| Element | Component Type | Interaction & Validation |
+| :--- | :--- | :--- |
+| **Branding Header** | Logo & Title | Renders application logo and product title text. |
+| **Username Field** | Text Input | Auto-focused on page mount; supports keyboard submission on Enter. |
+| **Password Field** | Password Input | Masked input field with toggle visibility action. |
+| **Sign In Button** | Primary Action Button | Triggers `POST /api/v1/auth/login` request; shows loading spinner while processing. |
+| **Alert Banner** | Context Banner | Displays dynamic error messages on authentication failure (HTTP 401/403) or session timeout. |
 
 ---
 

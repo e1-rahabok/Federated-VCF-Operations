@@ -6,41 +6,50 @@
 
 ---
 
-## 📐 Visual Layout & Wireframe
+## 📐 Graphical Visual Layout & Wireframe
 
+```mermaid
+graph TD
+    subgraph Settings_Workspace ["System & VCF Configuration Workspace"]
+        direction TB
+
+        subgraph Instance_Section ["VCF Operations Instances Management Panel"]
+            I_Header["🌐 Registered Instances Table Header | Action: + Add VCF Instance"]
+            I_Table["📋 Instance Grid Columns: Instance Name | Hostname / IP | Auth Type | Polling Interval | Status Badge | Actions (Edit / Delete)"]
+        end
+
+        subgraph Auth_Modal ["Add / Edit Instance Modal Dialog"]
+            direction TB
+            M_Inputs["📝 Connection Details: Instance Name & Hostname / IP"]
+            
+            subgraph Auth_Options ["Dual Authentication Selector"]
+                direction LR
+                Opt_A["🔑 Option A: Local OpsToken<br/>• Username<br/>• Password<br/>• Auth Source"]
+                Opt_B["🛡️ Option B: VCF SSO / VIDB Bearer Token<br/>• VIDB Host<br/>• Client Name / ID<br/>• API Refresh Token"]
+            end
+
+            M_Actions["🧪 Actions: [ Test Connection ] | 💾 [ Save Instance ]"]
+        end
+
+        subgraph Retention_Section ["Data Retention & System Settings Panel"]
+            R1["⏱️ Raw 1-Min Metrics Retention: Input (48 Hours default)"]
+            R2["📊 Summary Rollups Retention: Input (90 Days default)"]
+            R3["🧹 Auto-Prune Execution Schedule: Input (00:00 UTC default)"]
+            R4["💾 Action: Save System Settings Button"]
+        end
+    end
+
+    Instance_Section --> Auth_Modal
+    Auth_Modal --> Retention_Section
 ```
-+-----------------------------------------------------------------------------------------+
-| VCF OPERATIONS INSTANCES MANAGEMENT                      [ + Add VCF Instance ]         |
-+-----------------------------------------------------------------------------------------+
-| Instance Name | Hostname / IP      | Auth Type    | Polling Interval | Status           |
-|---------------+--------------------+--------------+------------------+------------------|
-| VCF-Ops-01    | vcf-ops-01.corp    | OpsToken     | 60 seconds       | [Healthy] [Edit] |
-| VCF-Ops-02    | vcf-ops-02.corp    | Bearer (VIDB)| 60 seconds       | [Healthy] [Edit] |
-+-----------------------------------------------------------------------------------------+
-| MODAL: ADD / EDIT VCF INSTANCE CONNECTION                                               |
-| Instance Name: [ VCF-Ops-03                          ]                                  |
-| Hostname / IP: [ vcf-ops-03.corp.local               ]                                  |
-|                                                                                         |
-| AUTHENTICATION METHOD:                                                                  |
-| ( ) Option A: Local Credentials (OpsToken) - VCF 9.0 & Local                            |
-|     Username:    [ admin                        ]                                       |
-|     Password:    [ ********************         ]                                       |
-|     Auth Source: [ LOCAL                        ]                                       |
-|                                                                                         |
-| (o) Option B: VCF SSO / VIDB API Token (Bearer Token) - VCF 9.1+ Best Practice          |
-|     VIDB Host:          [ vidb.corp.local       ]                                       |
-|     Client Name / ID:   [ federated-ops-client  ]                                       |
-|     API Refresh Token:  [ ********************  ]                                       |
-|                                                                                         |
-| [ Test Connection ]                                               [ Save Instance ]    |
-+-----------------------------------------------------------------------------------------+
-| RETENTION & SYSTEM SETTINGS                                                             |
-| - Raw 1-Min Metrics Retention: [ 48 ] Hours                                             |
-| - Summary Rollups Retention:   [ 90 ] Days                                              |
-| - Auto-Prune Daily Execution:  [ 00:00 ] UTC                                            |
-|                                                                    [ Save System Settings]|
-+-----------------------------------------------------------------------------------------+
-```
+
+### Component & Region Layout Breakdown
+
+| Section | Component | Features & User Interactions |
+| :--- | :--- | :--- |
+| **Instance Management Table** | Top Panel | Interactive table displaying registered VCF Operations instances, status badges (`Healthy`, `Unreachable`, `Auth Error`), and edit/delete triggers. |
+| **Dual Auth Modal** | Modal Dialog | Supports **Option A** (Local `OpsToken` credentials) and **Option B** (VCF SSO `Bearer Token` via Identity Broker). Includes a "Test Connection" button that validates endpoints prior to saving. |
+| **Retention Policy Form** | Bottom Panel | Configures raw metric buffer purge thresholds (hours) and long-term rollup retention windows (days). |
 
 ---
 
