@@ -1,0 +1,239 @@
+openapi: 3.0.3
+info:
+  title: Federated VCF Operations 9 REST API
+  description: Centralized REST API Gateway for monitoring, querying, and configuring federated VMware Cloud Foundation (VCF) Operations 9 instances.
+  version: 1.0.0
+servers:
+  - url: /api/v1
+    description: Primary API Gateway Server
+
+paths:
+  /auth/login:
+    post:
+      summary: User Login & Session Authentication
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  example: admin
+                password:
+                  type: string
+                  format: password
+                  example: SecretPassword123!
+      responses:
+        '200':
+          description: Successful authentication
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: session=jwt_token_here; HttpOnly; Secure; SameSite=Strict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      username: { type: string }
+                      role: { type: string, enum: [VIEWER, ADMIN] }
+        '401':
+          description: Invalid username or password
+
+  /instances:
+    get:
+      summary: List Configured VCF Operations Instances
+      operationId: listInstances
+      responses:
+        '200':
+          description: List of VCF instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VcfInstance'
+    post:
+      summary: Add New VCF Operations Instance
+      operationId: addInstance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VcfInstanceInput'
+      responses:
+        '201':
+          description: Instance created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VcfInstance'
+
+  /instances/test:
+    post:
+      summary: Test Connectivity and Credentials against VCF Operations 9 Instance
+      operationId: testInstanceConnection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VcfInstanceInput'
+      responses:
+        '200':
+          description: Connection test successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  vcfVersion: { type: string, example: "9.1.0" }
+        '400':
+          description: Connection or authentication failed
+
+  /alerts:
+    get:
+      summary: Query and Slicing/Dicing Alerts across Resources
+      operationId: queryAlerts
+      parameters:
+        - name: instanceId
+          in: query
+          required: false
+          schema: { type: string }
+        - name: severity
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [CRITICAL, IMMEDIATE, WARNING, INFO]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ACTIVE, CANCELED, SUSPENDED]
+        - name: resourceKind
+          in: query
+          required: false
+          schema: { type: string, example: VirtualMachine }
+        - name: search
+          in: query
+          required: false
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        '200':
+          description: Paged alerts response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: { type: integer }
+                  page: { type: integer }
+                  alerts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Alert'
+
+  /metrics/query:
+    get:
+      summary: Query Timeseries Metrics for Interactive Charts
+      operationId: queryMetrics
+      parameters:
+        - name: resourceUuid
+          in: query
+          required: true
+          schema: { type: string }
+        - name: statKeys
+          in: query
+          required: true
+          schema: { type: string, example: "cpu|usage_average,mem|usage_average" }
+        - name: resolution
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [RAW_1MIN, SUMMARY_5MIN, SUMMARY_1HOUR]
+            default: RAW_1MIN
+        - name: from
+          in: query
+          required: false
+          schema: { type: integer, description: "Unix timestamp in ms" }
+        - name: to
+          in: query
+          required: false
+          schema: { type: integer, description: "Unix timestamp in ms" }
+      responses:
+        '200':
+          description: Metric timeseries series map
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      timestamp: { type: integer }
+                      value: { type: number }
+
+components:
+  schemas:
+    VcfInstanceInput:
+      type: object
+      required: [name, hostname, authType]
+      properties:
+        name: { type: string, example: "VCF-Ops-01" }
+        hostname: { type: string, example: "vcf-ops-01.corp.local" }
+        authType: { type: string, enum: [OPS_TOKEN, BEARER_TOKEN] }
+        username: { type: string, example: "admin" }
+        password: { type: string, format: password }
+        authSource: { type: string, example: "LOCAL" }
+        vidbHost: { type: string, example: "vidb.corp.local" }
+        clientId: { type: string, example: "federated-ops-client" }
+        apiRefreshToken: { type: string, format: password }
+
+    VcfInstance:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        hostname: { type: string }
+        authType: { type: string }
+        enabled: { type: boolean }
+        healthStatus: { type: string, enum: [HEALTHY, DEGRADED, UNREACHABLE] }
+        lastPolledAt: { type: string, format: date-time }
+
+    Alert:
+      type: object
+      properties:
+        alertId: { type: string }
+        instanceId: { type: string }
+        resourceUuid: { type: string }
+        resourceName: { type: string }
+        resourceKind: { type: string }
+        alertLevel: { type: string, enum: [CRITICAL, IMMEDIATE, WARNING, INFO] }
+        status: { type: string, enum: [ACTIVE, CANCELED, SUSPENDED] }
+        startTime: { type: string, format: date-time }
+        updateTime: { type: string, format: date-time }

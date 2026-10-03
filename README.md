@@ -35,10 +35,14 @@ It polls metrics, objects, and alerts every 1 minute from multiple VCF Operation
 ├── Configuration/               # Human-friendly YAML collection configs
 │   ├── metrics_list.yaml        # Metrics collected per object type
 │   └── alerts_list.yaml         # Alert filters monitored per object type
-├── Documentation/               # Project & Technical Specifications
+├── Documentation/               # Technical Specifications & Engineering Guides
 │   ├── Requirements.md          # Functional features & Mermaid user flow diagrams
 │   ├── Solution.md              # Technical solution architecture & Mermaid ERDs
 │   ├── Pages_Specification.md   # Complete web pages inventory, wireframes & UI functions
+│   ├── Backend_Developer_Guide.md # Resilience patterns, Clean Architecture & performance
+│   ├── Frontend_Developer_Guide.md # Design system tokens, 4-state machine & virtualization
+│   ├── OpenAPI_Spec.yaml        # Formal OpenAPI 3.0 REST API specification
+│   ├── Testing_and_Operations_Guide.md # QA test pyramid, runbooks & self-monitoring
 │   ├── Architecture.md          # Component relationships & data flow summary
 │   └── Configuration_Guide.md   # Guide for configuring metric/alert rules
 ├── src/                         # Application Source Code Scaffolding
@@ -103,11 +107,15 @@ The web console will be accessible at `http://localhost:3000`.
 
 ---
 
-## 📖 Key Documentation
+## 📖 Key Documentation & Engineering Specifications
 
 * [Functional & Technical Requirements](Documentation/Requirements.md)
 * [Technical Solution Architecture](Documentation/Solution.md)
-* [Pages Specification Guide](Documentation/Pages_Specification.md)
+* [Pages & UI Wireframe Specification](Documentation/Pages_Specification.md)
+* [Backend Developer Guide & Architecture](Documentation/Backend_Developer_Guide.md)
+* [Frontend Developer & UI/UX Guide](Documentation/Frontend_Developer_Guide.md)
+* [OpenAPI 3.0 Specification (YAML)](Documentation/OpenAPI_Spec.yaml)
+* [QA Testing & Operations Runbook](Documentation/Testing_and_Operations_Guide.md)
 * [Architecture Guide](Documentation/Architecture.md)
 * [Configuration Guide](Documentation/Configuration_Guide.md)
 
