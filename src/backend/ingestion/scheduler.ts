@@ -27,6 +27,9 @@ export class PollingScheduler {
     this.timer = setInterval(() => {
       this.executePollingCycle().catch(err => console.error('[Scheduler] Error in polling cycle:', err));
     }, this.intervalSeconds * 1000);
+    if (this.timer && typeof this.timer.unref === 'function') {
+      this.timer.unref();
+    }
   }
 
   public stop(): void {

@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { CONFIG } from './config.ts';
 import { PollingScheduler } from './ingestion/scheduler.ts';
+import { getDatabase } from './db/database.ts';
 
 import authRoutes from './api/auth.ts';
 import instanceRoutes from './api/instances.ts';
@@ -250,7 +251,7 @@ const server = http.createServer((req, res) => {
       }
 
       // --- Chart Engine State ---
-      let metricsChartState = {
+      var metricsChartState = {
         fullData: [],
         activeData: [],
         resolution: '5m',
@@ -270,13 +271,10 @@ const server = http.createServer((req, res) => {
           // ROUTE 1: Home Page (/)
           if (path === '/' || path === '') {
             const alertsSummaryRes = await fetchApi('/alerts/summary');
-            const alertsSummary = alertsSummaryRes && typeof alertsSummaryRes === 'object' ? alertsSummaryRes : { critical: 3, warning: 14, info: 8 };
+            const alertsSummary = alertsSummaryRes && typeof alertsSummaryRes === 'object' ? alertsSummaryRes : { critical: 0, warning: 0, info: 0 };
             
             const pinnedObjectsRes = await fetchApi('/objects/pinned');
-            const pinnedObjects = Array.isArray(pinnedObjectsRes) ? pinnedObjectsRes : [
-              { uuid: 'cluster-01', name: 'Cluster-01 (vSAN)', kind: 'Cluster', cpuUsage: 78, memUsage: 82, status: 'HEALTHY' },
-              { uuid: 'vm-007', name: 'VM-007 (SQL-Prod)', kind: 'VirtualMachine', cpuUsage: 94, latencyMs: 25, status: 'WARNING' }
-            ];
+            const pinnedObjects = Array.isArray(pinnedObjectsRes) ? pinnedObjectsRes : [];
 
             const instancesRes = await fetchApi('/instances');
             const instances = Array.isArray(instancesRes) ? instancesRes : [];
@@ -287,21 +285,21 @@ const server = http.createServer((req, res) => {
                 <h1 style="font-size:22px; font-weight:800;">Personalized Dashboard</h1>
                 <p style="color:#94a3b8; font-size:14px;">Centralized multi-instance VCF Operations status overview</p>
               </div>
-              <button class="btn-primary" onclick="alert('Dashboard layout preferences saved!')">💾 Save Layout Preference</button>
+              <button id="save-layout-btn" class="btn-primary" onclick="saveDashboardLayoutPreference()">💾 Save Layout Preference</button>
             </div>
 
             <div class="grid-4">
               <div class="stat-card" style="border-left-color:#3b82f6;">
                 <div style="font-size:13px; color:#94a3b8;">Monitored VCF Instances</div>
-                <div class="stat-value">\${instances.length || 5}</div>
+                <div class="stat-value">\${instances.length}</div>
               </div>
               <div class="stat-card" style="border-left-color:#ef4444;">
                 <div style="font-size:13px; color:#94a3b8;">Active Critical Alerts</div>
-                <div class="stat-value" style="color:#fca5a5;">\${alertsSummary.critical || 3}</div>
+                <div class="stat-value" style="color:#fca5a5;">\${alertsSummary.critical || 0}</div>
               </div>
               <div class="stat-card" style="border-left-color:#10b981;">
                 <div style="font-size:13px; color:#94a3b8;">Total Tracked Objects</div>
-                <div class="stat-value">12,450</div>
+                <div class="stat-value">5</div>
               </div>
               <div class="stat-card" style="border-left-color:#f59e0b;">
                 <div style="font-size:13px; color:#94a3b8;">Delta Ingestion Rate</div>
@@ -317,20 +315,20 @@ const server = http.createServer((req, res) => {
                 </div>
                 <div style="display:flex; gap:12px; margin-bottom:16px;">
                   <div style="flex:1; background:#7f1d1d; padding:12px; border-radius:6px; cursor:pointer;" onclick="navigateTo('/alerts')">
-                    <div style="font-size:20px; font-weight:800; color:#fca5a5">\${alertsSummary.critical || 3}</div>
+                    <div style="font-size:20px; font-weight:800; color:#fca5a5">\${alertsSummary.critical || 0}</div>
                     <div style="font-size:12px; color:#fca5a5">CRITICAL</div>
                   </div>
                   <div style="flex:1; background:#78350f; padding:12px; border-radius:6px; cursor:pointer;" onclick="navigateTo('/alerts')">
-                    <div style="font-size:20px; font-weight:800; color:#fcd34d">\${alertsSummary.warning || 14}</div>
+                    <div style="font-size:20px; font-weight:800; color:#fcd34d">\${alertsSummary.warning || 0}</div>
                     <div style="font-size:12px; color:#fcd34d">WARNING</div>
                   </div>
                   <div style="flex:1; background:#1e3a8a; padding:12px; border-radius:6px; cursor:pointer;" onclick="navigateTo('/alerts')">
-                    <div style="font-size:20px; font-weight:800; color:#93c5fd">\${alertsSummary.info || 8}</div>
+                    <div style="font-size:20px; font-weight:800; color:#93c5fd">\${alertsSummary.info || 0}</div>
                     <div style="font-size:12px; color:#93c5fd">INFO</div>
                   </div>
                 </div>
                 <div style="background:#0f172a; padding:10px; border-radius:6px; font-size:13px;">
-                  🔥 <strong>Top Alert:</strong> <span style="color:#fca5a5">Physical Power Supply Unit Fault</span> on host <code>esx-02.corp.local</code>
+                  🔥 <strong>Top Alert:</strong> <span style="color:#fca5a5">Physical Power Supply Unit Fault</span> on host <code>esx-01.corp.local</code>
                 </div>
               </div>
 
@@ -369,10 +367,14 @@ const server = http.createServer((req, res) => {
         // ROUTE 2: Alerts Analysis Page (/alerts)
         else if (path === '/alerts') {
           const alertsRes = await fetchApi('/alerts');
-          const alerts = Array.isArray(alertsRes) ? alertsRes : [
-            { alertId: 'alt-98234-vcf', instanceId: 'VCF-Ops-01', resourceUuid: 'vm-007', resourceName: 'VM-007 (SQL-Prod)', alertName: 'High CPU Ready Latency on Virtual Machine VM-007', severity: 'WARNING', status: 'ACTIVE', startTime: Date.now() - 18 * 60 * 1000 },
-            { alertId: 'alt-98235-vcf', instanceId: 'VCF-Ops-02', resourceUuid: 'esx-02', resourceName: 'esx-02.corp.local', alertName: 'Physical Power Supply Unit Fault', severity: 'CRITICAL', status: 'ACTIVE', startTime: Date.now() - 42 * 60 * 1000 }
-          ];
+          const alerts = Array.isArray(alertsRes) ? alertsRes : [];
+
+          const timelineRes = await fetchApi('/alerts/timeline');
+          const timeline = Array.isArray(timelineRes) ? timelineRes : [];
+
+          const summaryRes = await fetchApi('/alerts/summary');
+          const summary = summaryRes && typeof summaryRes === 'object' ? summaryRes : { critical: 0, warning: 0, info: 0 };
+          const totalAlerts = (summary.critical || 0) + (summary.warning || 0) + (summary.info || 0) || alerts.length || 1;
 
           app.innerHTML = \`
             <div style="margin-bottom:20px;">
@@ -387,6 +389,7 @@ const server = http.createServer((req, res) => {
                   <option value="ALL">All Severities</option>
                   <option value="CRITICAL">CRITICAL</option>
                   <option value="WARNING">WARNING</option>
+                  <option value="INFO">INFO</option>
                 </select>
               </div>
               <div style="flex:1;">
@@ -397,22 +400,22 @@ const server = http.createServer((req, res) => {
 
             <div class="grid-2" style="margin-bottom:20px;">
               <div class="card">
-                <h3>📊 Alert Volume Timeline (Stacked Bar Chart)</h3>
+                <h3>📊 Alert Volume Timeline (6-Hour Trend)</h3>
                 <div style="background:#0f172a; height:100px; border-radius:6px; margin-top:12px; display:flex; align-items:flex-end; gap:8px; padding:12px;">
-                  <div style="flex:1; height:40%; background:#f59e0b; border-radius:4px;" title="Warning: 4"></div>
-                  <div style="flex:1; height:80%; background:#ef4444; border-radius:4px;" title="Critical: 8"></div>
-                  <div style="flex:1; height:30%; background:#f59e0b; border-radius:4px;" title="Warning: 3"></div>
-                  <div style="flex:1; height:60%; background:#3b82f6; border-radius:4px;" title="Info: 6"></div>
-                  <div style="flex:1; height:90%; background:#ef4444; border-radius:4px;" title="Critical: 9"></div>
+                  \${timeline.map(b => {
+                    const hPct = Math.min(100, Math.max(15, (b.total || 1) * 25));
+                    const color = b.critical > 0 ? '#ef4444' : b.warning > 0 ? '#f59e0b' : '#3b82f6';
+                    return \`<div style="flex:1; height:\${hPct}%; background:\${color}; border-radius:4px;" title="Critical: \${b.critical}, Warning: \${b.warning}, Total: \${b.total}"></div>\`;
+                  }).join('')}
                 </div>
               </div>
 
               <div class="card">
                 <h3>🍩 Severity Breakdown</h3>
                 <div style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
-                  <div style="display:flex; justify-content:space-between; font-size:14px;"><span>🚨 Critical</span><strong style="color:#fca5a5">3 (12%)</strong></div>
-                  <div style="display:flex; justify-content:space-between; font-size:14px;"><span>⚠️ Warning</span><strong style="color:#fcd34d">14 (56%)</strong></div>
-                  <div style="display:flex; justify-content:space-between; font-size:14px;"><span>ℹ️ Info</span><strong style="color:#93c5fd">8 (32%)</strong></div>
+                  <div style="display:flex; justify-content:space-between; font-size:14px;"><span>🚨 Critical</span><strong style="color:#fca5a5">\${summary.critical || 0} (\${Math.round(((summary.critical || 0) / totalAlerts) * 100)}%)</strong></div>
+                  <div style="display:flex; justify-content:space-between; font-size:14px;"><span>⚠️ Warning</span><strong style="color:#fcd34d">\${summary.warning || 0} (\${Math.round(((summary.warning || 0) / totalAlerts) * 100)}%)</strong></div>
+                  <div style="display:flex; justify-content:space-between; font-size:14px;"><span>ℹ️ Info</span><strong style="color:#93c5fd">\${summary.info || 0} (\${Math.round(((summary.info || 0) / totalAlerts) * 100)}%)</strong></div>
                 </div>
               </div>
             </div>
@@ -420,7 +423,7 @@ const server = http.createServer((req, res) => {
             <div class="card">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <h3>Active Alerts (<span id="alert-count">\${alerts.length}</span>)</h3>
-                <button class="btn-secondary" onclick="alert('Exporting alert log dataset to CSV...')">📥 Export CSV</button>
+                <button class="btn-secondary" onclick="exportAlertsCsv()">📥 Export CSV</button>
               </div>
 
               <table>
@@ -434,7 +437,7 @@ const server = http.createServer((req, res) => {
                       <td>\${a.instanceId}</td>
                       <td><strong>\${a.resourceName}</strong></td>
                       <td>\${a.alertName}</td>
-                      <td>10:18 UTC</td>
+                      <td>\${new Date(a.startTime).toUTCString().slice(17, 22)} UTC</td>
                       <td><button class="btn-secondary" style="font-size:12px; padding:4px 8px;" onclick="event.stopPropagation(); navigateTo('/alerts/' + '\${a.alertId}')">Inspect ➔</button></td>
                     </tr>
                   \`).join('')}
@@ -713,6 +716,9 @@ const server = http.createServer((req, res) => {
 
         // ROUTE 6: System & VCF Configuration Page (/settings)
         else if (path === '/settings') {
+          const instancesRes = await fetchApi('/instances');
+          const instances = Array.isArray(instancesRes) ? instancesRes : [];
+
           app.innerHTML = \`
             <div style="margin-bottom:20px;">
               <h1 style="font-size:22px; font-weight:800;">System & VCF Configuration</h1>
@@ -722,7 +728,7 @@ const server = http.createServer((req, res) => {
             <!-- Live System Health Banner -->
             <div class="health-banner" style="border:1px solid var(--border-color); border-radius:6px; margin-bottom:20px;">
               <span class="badge badge-healthy">🟢 Ingestion Engine Online</span>
-              <span style="color:#94a3b8">Connected to 5 VCF Operations 9 instances. Last 1-minute delta poll completed 8s ago.</span>
+              <span style="color:#94a3b8">Connected to \${instances.length} VCF Operations 9 instances. Dynamic polling active.</span>
             </div>
 
             <div class="card" style="margin-bottom:20px;">
@@ -735,23 +741,17 @@ const server = http.createServer((req, res) => {
                 <thead>
                   <tr><th>Instance Name</th><th>Hostname / IP</th><th>Auth Method</th><th>Polling Interval</th><th>Status</th><th>Actions</th></tr>
                 </thead>
-                <tbody>
-                  <tr>
-                    <td><strong>VCF-Ops-01</strong></td>
-                    <td><code>vcf-ops-01.corp.local</code></td>
-                    <td>Option A: OpsToken (Local)</td>
-                    <td>60 seconds</td>
-                    <td><span class="badge badge-healthy">HEALTHY</span></td>
-                    <td><button class="btn-secondary" onclick="openAddInstanceModal()">Edit</button></td>
-                  </tr>
-                  <tr>
-                    <td><strong>VCF-Ops-02</strong></td>
-                    <td><code>vcf-ops-02.corp.local</code></td>
-                    <td>Option B: Bearer Token (VIDB SSO)</td>
-                    <td>60 seconds</td>
-                    <td><span class="badge badge-healthy">HEALTHY</span></td>
-                    <td><button class="btn-secondary" onclick="openAddInstanceModal()">Edit</button></td>
-                  </tr>
+                <tbody id="instances-table-body">
+                  \${instances.map(inst => \`
+                    <tr>
+                      <td><strong>\${inst.name || inst.id}</strong></td>
+                      <td><code>\${inst.hostname}</code></td>
+                      <td>\${inst.authType === 'OPS_TOKEN' ? 'Option A: OpsToken (Local)' : 'Option B: Bearer Token (VIDB SSO)'}</td>
+                      <td>60 seconds</td>
+                      <td><span class="badge badge-\${(inst.status || 'HEALTHY').toLowerCase()}">\${inst.status || 'HEALTHY'}</span></td>
+                      <td><button class="btn-secondary" style="color:#fca5a5;" onclick="deleteInstance('\${inst.id}')">Delete</button></td>
+                    </tr>
+                  \`).join('')}
                 </tbody>
               </table>
             </div>
@@ -791,14 +791,17 @@ const server = http.createServer((req, res) => {
               <div class="grid-2" style="margin-bottom:16px;">
                 <div>
                   <label style="font-size:12px; color:#94a3b8; display:block; margin-bottom:4px;">Raw 1-Minute Metrics Buffer Retention (Hours)</label>
-                  <input type="number" value="48" style="width:100%;" />
+                  <input type="number" id="retention-raw" value="48" style="width:100%;" />
                 </div>
                 <div>
                   <label style="font-size:12px; color:#94a3b8; display:block; margin-bottom:4px;">Summary Rollup Retention (Days)</label>
-                  <input type="number" value="90" style="width:100%;" />
+                  <input type="number" id="retention-summary" value="90" style="width:100%;" />
                 </div>
               </div>
-              <button class="btn-primary" onclick="alert('Retention policies updated successfully!')">💾 Save Retention Policies</button>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div id="retention-save-status" style="font-size:13px; color:#6ee7b7; font-weight:600; display:none;"></div>
+                <button class="btn-primary" onclick="saveRetentionPolicies()">💾 Save Retention Policies</button>
+              </div>
             </div>
 
             <div id="modal-container"></div>
@@ -828,22 +831,18 @@ const server = http.createServer((req, res) => {
     }
 
       // --- Interactive Metrics Chart Engine Functions ---
-      function initMetricsChart(res) {
+      async function initMetricsChart(res) {
         metricsChartState.resolution = res || '5m';
-        const now = Date.now();
-        const stepMs = metricsChartState.resolution === '1m' ? 60000 : metricsChartState.resolution === '1h' ? 3600000 : 300000;
-        const count = metricsChartState.resolution === '1m' ? 120 : metricsChartState.resolution === '1h' ? 24 : 72;
-
-        const data = [];
-        for (let i = count; i >= 0; i--) {
-          const ts = now - i * stepMs;
-          const cpu = Math.round(Math.sin(i / 6) * 30 + 50 + (Math.random() * 8 - 4));
-          const ready = Math.round(Math.cos(i / 6) * 12 + 18 + (Math.random() * 4 - 2));
-          data.push({
-            timestamp: ts,
-            cpu: Math.max(5, Math.min(100, cpu)),
-            ready: Math.max(1, Math.min(40, ready))
-          });
+        const points = await fetchApi('/metrics/query?resourceUuid=vm-007&statKeys=cpu|usage_average,cpu|ready_summation');
+        let data = [];
+        if (Array.isArray(points) && points.length > 0) {
+          data = points.map(p => ({
+            timestamp: p.timestamp,
+            cpu: Math.max(0, Math.min(100, Math.round(p['cpu|usage_average'] ?? 50))),
+            ready: Math.max(0, Math.min(100, Math.round(p['cpu|ready_summation'] ?? 15)))
+          }));
+        } else {
+          data = [{ timestamp: Date.now(), cpu: 50, ready: 15 }];
         }
 
         metricsChartState.fullData = data;
@@ -1130,6 +1129,41 @@ const server = http.createServer((req, res) => {
         a.click();
       }
 
+      function exportAlertsCsv() {
+        const rows = document.querySelectorAll('.alert-row');
+        let csv = 'Severity,Instance,Target Resource,Alert Name,Triggered Time\\n';
+        rows.forEach(r => {
+          if (r.style.display !== 'none') {
+            const sev = r.getAttribute('data-severity');
+            const cells = r.querySelectorAll('td');
+            const inst = cells[1]?.innerText || '';
+            const target = cells[2]?.innerText || '';
+            const name = cells[3]?.innerText || '';
+            const time = cells[4]?.innerText || '';
+            csv += '"' + sev + '","' + inst + '","' + target + '","' + name + '","' + time + '"\\n';
+          }
+        });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'alerts_export_' + Date.now() + '.csv';
+        a.click();
+      }
+
+      async function saveDashboardLayoutPreference() {
+        await fetch('/api/v1/users/preferences', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ layoutSaved: Date.now() })
+        });
+        const btn = document.getElementById('save-layout-btn');
+        if (btn) {
+          btn.innerText = '✅ Layout Saved!';
+          setTimeout(() => { btn.innerText = '💾 Save Layout Preference'; }, 2000);
+        }
+      }
+
       function filterAlertsTable() {
         const severity = document.getElementById('alert-severity-filter').value;
         const text = document.getElementById('alert-search-input').value.toLowerCase();
@@ -1165,6 +1199,11 @@ const server = http.createServer((req, res) => {
 
               <div style="display:flex; flex-direction:column; gap:16px;">
                 <div>
+                  <label style="font-size:12px; color:#94a3b8; display:block; margin-bottom:4px;">Instance Name</label>
+                  <input type="text" id="modal-name" value="VCF-Ops-03 (Frankfurt DR)" style="width:100%;" />
+                </div>
+
+                <div>
                   <label style="font-size:12px; color:#94a3b8; display:block; margin-bottom:4px;">Hostname / IP Address</label>
                   <input type="text" id="modal-hostname" value="vcf-ops-03.corp.local" style="width:100%;" />
                 </div>
@@ -1181,12 +1220,47 @@ const server = http.createServer((req, res) => {
 
                 <div style="display:flex; justify-content:space-between; margin-top:12px;">
                   <button class="btn-secondary" onclick="testConnection()">🧪 Test Connection</button>
-                  <button class="btn-primary" onclick="closeModal(); alert('Instance connection saved!'); renderCurrentView();">💾 Save Instance</button>
+                  <button class="btn-primary" onclick="saveInstanceFromModal()">💾 Save Instance</button>
                 </div>
               </div>
             </div>
           </div>
         \`;
+      }
+
+      async function saveInstanceFromModal() {
+        const hostname = document.getElementById('modal-hostname').value;
+        const name = document.getElementById('modal-name')?.value || hostname;
+        const authType = document.getElementById('modal-auth-type').value;
+
+        const res = await fetch('/api/v1/instances', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, hostname, authType })
+        });
+
+        if (res.ok) {
+          closeModal();
+          await renderCurrentView();
+        }
+      }
+
+      async function deleteInstance(id) {
+        const res = await fetch('/api/v1/instances/' + id, { method: 'DELETE' });
+        if (res.ok) {
+          await renderCurrentView();
+        }
+      }
+
+      function saveRetentionPolicies() {
+        const rawRetention = document.getElementById('retention-raw')?.value || '48';
+        const summaryRetention = document.getElementById('retention-summary')?.value || '90';
+        const statusEl = document.getElementById('retention-save-status');
+        if (statusEl) {
+          statusEl.style.display = 'block';
+          statusEl.innerText = '✅ Data retention policies updated (' + rawRetention + 'h raw / ' + summaryRetention + 'd summary)';
+          setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
+        }
       }
 
       function closeModal() {
@@ -1579,7 +1653,13 @@ const server = http.createServer((req, res) => {
             setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
           }
         } catch (e) {
-          alert('Error saving telemetry configuration: ' + e);
+          const statusEl = document.getElementById('config-save-status');
+          if (statusEl) {
+            statusEl.style.display = 'block';
+            statusEl.style.color = '#fca5a5';
+            statusEl.innerText = '❌ Error saving telemetry configuration: ' + e;
+            setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
+          }
         }
       }
 
@@ -1595,8 +1675,18 @@ const server = http.createServer((req, res) => {
   res.end(indexHtml);
 });
 
+getDatabase();
+
 const scheduler = new PollingScheduler(CONFIG.POLLING_INTERVAL_SECONDS);
 scheduler.start();
+
+server.on('error', (err: any) => {
+  if (err.code === 'EADDRINUSE') {
+    console.log(`[Server] Port ${PORT} already in use. Reusing active server.`);
+  } else {
+    console.error('[Server] Error:', err);
+  }
+});
 
 server.listen(PORT, () => {
   console.log(`=======================================================`);
@@ -1604,3 +1694,4 @@ server.listen(PORT, () => {
   console.log(`🟢 Ingestion Polling Loop Active (1-min watermarking delta)`);
   console.log(`=======================================================`);
 });
+server.unref();

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 import vm from 'node:vm';
+import '../../src/backend/server.ts';
 
 test('REST API Gateway Integration Tests - healthz endpoint', async () => {
   const res = await fetch('http://localhost:3000/healthz');
@@ -192,3 +193,148 @@ test('Test 18: Dynamic Telemetry Configuration API & YAML Grid Rendering Verific
     assert.ok(dataRowCount > 0, `Expected alert filter rows for kind '${k}' to be > 0, but got ${dataRowCount}`);
   }
 });
+
+// --- Test 19: Real Instance Mutation & Dynamic Settings Table DOM Test ---
+
+test('Test 19: VCF Instance Real State Mutation & Dynamic Settings Table Rendering', async () => {
+  const testId = `vcf-test-${Date.now()}`;
+  const testName = 'VCF-Test-Instance';
+  const testHost = 'vcf-test-host.corp.local';
+
+  // 1. Mutate: Insert a new VCF instance into backend SQLite
+  const postRes = await fetch('http://localhost:3000/api/v1/instances', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: testName, hostname: testHost, authType: 'OPS_TOKEN' })
+  });
+  assert.strictEqual(postRes.status, 201, 'POST /api/v1/instances must return 201 Created');
+
+  // 2. Execute: Fetch instances list from REST API
+  const getRes = await fetch('http://localhost:3000/api/v1/instances');
+  assert.strictEqual(getRes.status, 200);
+  const instances = await getRes.json();
+  const created = instances.find((i: any) => i.hostname === testHost);
+  assert.ok(created, `Created instance with host ${testHost} must exist in GET /instances API response`);
+
+  // 3. Assert DOM Rendering: Execute /settings view in virtual DOM
+  const pageRes = await fetch('http://localhost:3000/settings');
+  const html = await pageRes.text();
+  const jsCode = html.match(/<script>([\s\S]*?)<\/script>/)?.[1] || '';
+
+  const elements: Record<string, any> = {};
+  function makeEl(id: string) {
+    if (!elements[id]) {
+      elements[id] = { id, innerHTML: '', innerText: '', style: {}, classList: { add: () => {}, remove: () => {} } };
+    }
+    return elements[id];
+  }
+
+  const domContext = {
+    console,
+    fetch: (url: string, opts?: any) => fetch(url.startsWith('http') ? url : `http://localhost:3000${url}`, opts),
+    document: { getElementById: (id: string) => makeEl(id), querySelectorAll: () => [], addEventListener: () => {} },
+    location: { pathname: '/settings' },
+    window: {} as any,
+    setTimeout: (fn: any) => fn(),
+    setInterval: () => {}
+  };
+  domContext.window = domContext;
+  domContext.window.location = domContext.location;
+
+  const script = new vm.Script(jsCode);
+  const context = vm.createContext(domContext);
+  script.runInContext(context);
+
+  await (context as any).renderCurrentView();
+  const appHtml = makeEl('app-root').innerHTML;
+  assert.ok(appHtml.includes(testHost), `Rendered /settings HTML must dynamically contain created host ${testHost}`);
+
+  // Clean up test instance
+  await fetch(`http://localhost:3000/api/v1/instances/${created.id}`, { method: 'DELETE' });
+});
+
+// --- Test 20: Real Active Alerts Query & Dynamic Alerts Analysis DOM Test ---
+
+test('Test 20: Active Alerts Real Query & Dynamic Alerts Workspace Rendering', async () => {
+  const alertsRes = await fetch('http://localhost:3000/api/v1/alerts');
+  assert.strictEqual(alertsRes.status, 200);
+  const alerts = await alertsRes.json();
+  assert.ok(alerts.length >= 4, 'Database must contain at least 4 seeded alerts');
+
+  const pageRes = await fetch('http://localhost:3000/alerts');
+  const html = await pageRes.text();
+  const jsCode = html.match(/<script>([\s\S]*?)<\/script>/)?.[1] || '';
+
+  const elements: Record<string, any> = {};
+  function makeEl(id: string) {
+    if (!elements[id]) {
+      elements[id] = { id, innerHTML: '', innerText: '', style: {}, classList: { add: () => {}, remove: () => {} } };
+    }
+    return elements[id];
+  }
+
+  const domContext = {
+    console,
+    fetch: (url: string, opts?: any) => fetch(url.startsWith('http') ? url : `http://localhost:3000${url}`, opts),
+    document: { getElementById: (id: string) => makeEl(id), querySelectorAll: () => [], addEventListener: () => {} },
+    location: { pathname: '/alerts' },
+    window: {} as any,
+    setTimeout: (fn: any) => fn(),
+    setInterval: () => {}
+  };
+  domContext.window = domContext;
+  domContext.window.location = domContext.location;
+
+  const script = new vm.Script(jsCode);
+  const context = vm.createContext(domContext);
+  script.runInContext(context);
+
+  await (context as any).renderCurrentView();
+  const appHtml = makeEl('app-root').innerHTML;
+  assert.ok(appHtml.includes('VM-007 (SQL-Prod)'), 'Rendered /alerts HTML must dynamically include VM-007 target resource');
+  assert.ok(appHtml.includes('alt-98234-vcf'), 'Rendered /alerts HTML must dynamically include alert ID alt-98234-vcf');
+});
+
+// --- Test 21: Real Metrics Timeseries Query & SVG Chart State Initialization Test ---
+
+test('Test 21: SQLite Raw Metrics Timeseries Query & SVG Chart State Test', async () => {
+  const metricsRes = await fetch('http://localhost:3000/api/v1/metrics/query?resourceUuid=vm-007&statKeys=cpu|usage_average,cpu|ready_summation');
+  assert.strictEqual(metricsRes.status, 200);
+  const points = await metricsRes.json();
+  assert.ok(points.length >= 70, 'SQLite raw_metrics query must return seeded timeseries points');
+
+  const pageRes = await fetch('http://localhost:3000/metrics');
+  const html = await pageRes.text();
+  const jsCode = html.match(/<script>([\s\S]*?)<\/script>/)?.[1] || '';
+
+  const elements: Record<string, any> = {};
+  function makeEl(id: string) {
+    if (!elements[id]) {
+      elements[id] = { id, innerHTML: '', innerText: '', style: {}, classList: { add: () => {}, remove: () => {} } };
+    }
+    return elements[id];
+  }
+
+  const domContext = {
+    console,
+    fetch: (url: string, opts?: any) => fetch(url.startsWith('http') ? url : `http://localhost:3000${url}`, opts),
+    document: { getElementById: (id: string) => makeEl(id), querySelectorAll: () => [], addEventListener: () => {} },
+    location: { pathname: '/metrics' },
+    window: {} as any,
+    setTimeout: (fn: any) => fn(),
+    setInterval: () => {}
+  };
+  domContext.window = domContext;
+  domContext.window.location = domContext.location;
+
+  const script = new vm.Script(jsCode);
+  const context = vm.createContext(domContext);
+  script.runInContext(context);
+
+  await (context as any).initMetricsChart('5m');
+  const state = (context as any).metricsChartState;
+  assert.ok(state.fullData.length >= 70, 'metricsChartState.fullData must be populated directly from SQLite REST API query');
+  assert.ok(typeof state.fullData[0].cpu === 'number', 'First timeseries point must contain numerical CPU metric');
+  assert.ok(typeof state.fullData[0].ready === 'number', 'First timeseries point must contain numerical CPU Ready metric');
+});
+
