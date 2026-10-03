@@ -2,7 +2,7 @@
 
 This document provides a high-level architectural reference for the Federated VMware Cloud Foundation (VCF) Operations 9 Web Application.
 
-For full details, refer to the primary [SOLUTION.md](../SOLUTION.md) specification document.
+For full details, refer to the primary [Solution.md](Solution.md) specification document.
 
 ---
 

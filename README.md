@@ -24,35 +24,30 @@ It polls metrics, objects, and alerts every 1 minute from multiple VCF Operation
 
 ## 📁 Repository Directory Layout
 
-```
-.
-├── .github/                     # GitHub Workflows and Issue/PR templates
-│   ├── workflows/ci.yml         # GitHub Actions CI pipeline
-│   ├── ISSUE_TEMPLATE/          # Bug report and feature request templates
-│   └── PULL_REQUEST_TEMPLATE.md # PR description guidelines
-├── Configuration/               # YAML Metric & Alert Collection Rules
-│   ├── metrics_list.yaml        # Metrics collected per object type
-│   └── alerts_list.yaml         # Alert filters monitored per object type
-├── docs/                        # Operational & Technical Documentation
-│   ├── ARCHITECTURE.md          # Architecture overview & component relationships
-│   └── CONFIGURATION_GUIDE.md   # Guide for configuring metric/alert rules
-├── src/                         # Application Source Code
-│   ├── backend/                 # Node.js Ingestion Engine & REST API
-│   │   ├── api/                 # REST endpoints & routes
-│   │   ├── db/                  # Database models, migrations, & watermarking
-│   │   ├── ingestion/           # 1-min polling scheduler & delta fetcher
-│   │   └── services/            # Token management, rollups, & retention purger
-│   └── frontend/                # React 18 Web UI
-│       ├── components/          # Reusable UI widgets, charts, and tables
-│       ├── pages/               # Home, Alerts, Metrics, & Settings pages
-│       └── services/            # API client layer
-├── scripts/                     # Utility scripts (backup, DB pruning)
-├── .env.example                 # Environment variables configuration template
-├── .gitignore                   # Git ignore specifications
-├── Dockerfile                   # Application container specification
-├── docker-compose.yml           # Production Compose orchestration
-├── REQUIREMENTS.md              # Functional & Technical Requirements Specification
-└── SOLUTION.md                  # Comprehensive Solution Architecture Document
+```mermaid
+graph TD
+    Root[📁 Repository Root]
+
+    Root --> Config[📁 Configuration]
+    Config --> ConfigFiles[metrics_list.yaml<br/>alerts_list.yaml]
+
+    Root --> Docs[📁 Documentation]
+    Docs --> DocFiles[Requirements.md<br/>Solution.md<br/>Architecture.md<br/>Configuration_Guide.md]
+
+    Root --> Src[📁 src]
+    Src --> Backend[📁 backend]
+    Backend --> BackendModules[api/<br/>db/<br/>ingestion/<br/>services/]
+    Src --> Frontend[📁 frontend]
+    Frontend --> FrontendModules[components/<br/>pages/<br/>services/]
+
+    Root --> Scripts[📁 scripts]
+    Scripts --> ScriptFiles[prune_data.ps1]
+
+    Root --> Github[📁 .github]
+    Github --> GithubWorkflows[workflows/ci.yml<br/>ISSUE_TEMPLATE/<br/>PULL_REQUEST_TEMPLATE.md]
+
+    Root --> ProjectFiles[📄 Root Configuration Files]
+    ProjectFiles --> DockerFiles[Dockerfile<br/>docker-compose.yml<br/>package.json<br/>.env.example<br/>README.md<br/>LICENSE]
 ```
 
 ---
@@ -101,10 +96,10 @@ The web console will be accessible at `http://localhost:3000`.
 
 ## 📖 Key Documentation
 
-* [Functional & Technical Requirements](REQUIREMENTS.md)
-* [Technical Solution Architecture](SOLUTION.md)
-* [Architecture Guide](docs/ARCHITECTURE.md)
-* [Configuration Guide](docs/CONFIGURATION_GUIDE.md)
+* [Functional & Technical Requirements](Documentation/Requirements.md)
+* [Technical Solution Architecture](Documentation/Solution.md)
+* [Architecture Guide](Documentation/Architecture.md)
+* [Configuration Guide](Documentation/Configuration_Guide.md)
 
 ---
 

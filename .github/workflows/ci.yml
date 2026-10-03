@@ -27,5 +27,5 @@ jobs:
 
       - name: Verify Requirements & Architecture Specs Exist
         run: |
-          test -f REQUIREMENTS.md
-          test -f SOLUTION.md
+          test -f Documentation/Requirements.md
+          test -f Documentation/Solution.md
