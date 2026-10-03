@@ -26,8 +26,8 @@ It polls metrics, objects, and alerts every 1 minute from multiple VCF Operation
 
 ```mermaid
 flowchart LR
-    classDef folder fill:#1e293b,stroke:#38bdf8,stroke-width:1px,color:#f8fafc;
-    classDef file fill:#0f172a,stroke:#64748b,stroke-width:1px,color:#cbd5e1;
+    classDef folder fill:none,stroke:none,color:#000000;
+    classDef file fill:none,stroke:none,color:#000000;
 
     Root["📁 federated-vcf-ops"]:::folder
 
