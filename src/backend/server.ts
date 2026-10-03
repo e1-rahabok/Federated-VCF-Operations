@@ -209,12 +209,6 @@ const server = http.createServer((req, res) => {
       </div>
     </div>
 
-    <!-- Live System Health Banner -->
-    <div class="health-banner">
-      <span class="badge badge-healthy">🟢 Ingestion Engine Online</span>
-      <span style="color:#94a3b8">Connected to 5 VCF Operations 9 instances. Last 1-minute delta poll completed 8s ago.</span>
-    </div>
-
     <!-- Main View Content Area -->
     <div class="container" id="app-root"></div>
 
@@ -246,6 +240,17 @@ const server = http.createServer((req, res) => {
         else if (activePath.startsWith('/metrics') || activePath.startsWith('/objects')) document.getElementById('nav-metrics').classList.add('active');
         else if (activePath.startsWith('/settings')) document.getElementById('nav-settings').classList.add('active');
       }
+
+      // --- Chart Engine State ---
+      let metricsChartState = {
+        fullData: [],
+        activeData: [],
+        resolution: '5m',
+        isDragging: false,
+        dragStartIdx: -1,
+        dragCurrentIdx: -1,
+        isZoomed: false
+      };
 
       async function renderCurrentView() {
         const path = window.location.pathname;
@@ -382,7 +387,7 @@ const server = http.createServer((req, res) => {
 
               <div class="card">
                 <h3>🍩 Severity Breakdown</h3>
-                <div style="margin-top:12px; display:flex; flexDirection:column; gap:8px;">
+                <div style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
                   <div style="display:flex; justify-content:space-between; font-size:14px;"><span>🚨 Critical</span><strong style="color:#fca5a5">3 (12%)</strong></div>
                   <div style="display:flex; justify-content:space-between; font-size:14px;"><span>⚠️ Warning</span><strong style="color:#fcd34d">14 (56%)</strong></div>
                   <div style="display:flex; justify-content:space-between; font-size:14px;"><span>ℹ️ Info</span><strong style="color:#93c5fd">8 (32%)</strong></div>
@@ -453,13 +458,27 @@ const server = http.createServer((req, res) => {
 
             <div class="card" style="margin-bottom:20px;">
               <h3 style="margin-bottom:12px;">Triggering Metric Timeseries Overlay</h3>
-              <div style="background:#0f172a; height:180px; border-radius:6px; padding:20px; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-                <div style="color:#94a3b8; font-size:14px; margin-bottom:8px;">📈 <code>cpu|ready_summation</code> (ms) Timeline Chart</div>
-                <div style="width:80%; height:80px; border-bottom:2px solid #3b82f6; position:relative;">
-                  <div style="position:absolute; right:30%; top:10px; background:#ef4444; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:bold;">
-                    ⚡ Trigger Spike: 28.4ms @ 10:18 UTC
-                  </div>
-                </div>
+              <div style="background:#0f172a; border-radius:6px; padding:16px; border:1px solid #334155;">
+                <svg width="100%" height="160" viewBox="0 0 800 160" style="display:block;">
+                  <!-- Axis Grid -->
+                  <line x1="50" y1="20" x2="750" y2="20" stroke="#334155" stroke-dasharray="3 3" />
+                  <line x1="50" y1="70" x2="750" y2="70" stroke="#334155" stroke-dasharray="3 3" />
+                  <line x1="50" y1="120" x2="750" y2="120" stroke="#334155" stroke-dasharray="3 3" />
+                  <line x1="50" y1="120" x2="750" y2="120" stroke="#334155" />
+                  <!-- Y Axis Labels -->
+                  <text x="42" y="24" fill="#3b82f6" font-size="11" text-anchor="end">40ms</text>
+                  <text x="42" y="74" fill="#3b82f6" font-size="11" text-anchor="end">20ms</text>
+                  <text x="42" y="124" fill="#3b82f6" font-size="11" text-anchor="end">0ms</text>
+                  <!-- X Axis Labels -->
+                  <text x="50" y="142" fill="#94a3b8" font-size="11" text-anchor="middle">09:50</text>
+                  <text x="225" y="142" fill="#94a3b8" font-size="11" text-anchor="middle">10:00</text>
+                  <text x="400" y="142" fill="#94a3b8" font-size="11" text-anchor="middle">10:10</text>
+                  <text x="575" y="142" fill="#ef4444" font-size="11" font-weight="bold" text-anchor="middle">10:18 (Trigger)</text>
+                  <text x="750" y="142" fill="#94a3b8" font-size="11" text-anchor="middle">10:30</text>
+                  <!-- Spike Path -->
+                  <path d="M 50 110 Q 200 115, 350 100 T 575 25 T 750 105" fill="none" stroke="#f59e0b" stroke-width="2.5" />
+                  <circle cx="575" cy="25" r="6" fill="#ef4444" stroke="#fff" stroke-width="2" />
+                </svg>
               </div>
             </div>
 
@@ -492,9 +511,9 @@ const server = http.createServer((req, res) => {
                     <div>
                       <strong>📁 VCF-Ops-01 / Cluster-vSAN-01</strong>
                       <div style="padding-left:16px; margin-top:6px; display:flex; flex-direction:column; gap:6px;">
-                        <label style="cursor:pointer;"><input type="checkbox" checked /> 💻 VM-007 (SQL-Prod)</label>
-                        <label style="cursor:pointer;"><input type="checkbox" /> 💻 VM-008 (Web-App)</label>
-                        <label style="cursor:pointer;"><input type="checkbox" /> 🖥️ esx-01.corp.local</label>
+                        <label style="cursor:pointer;"><input type="checkbox" checked onchange="renderChartWithCurrentFilters()" /> 💻 VM-007 (SQL-Prod)</label>
+                        <label style="cursor:pointer;"><input type="checkbox" onchange="renderChartWithCurrentFilters()" /> 💻 VM-008 (Web-App)</label>
+                        <label style="cursor:pointer;"><input type="checkbox" onchange="renderChartWithCurrentFilters()" /> 🖥️ esx-01.corp.local</label>
                       </div>
                     </div>
                   </div>
@@ -503,10 +522,10 @@ const server = http.createServer((req, res) => {
                 <div class="card">
                   <h3 style="margin-bottom:12px;">📊 Metric Categories</h3>
                   <div style="font-size:13px; display:flex; flex-direction:column; gap:8px;">
-                    <label style="cursor:pointer;"><input type="checkbox" checked /> <code>cpu|usage_average</code> (%)</label>
-                    <label style="cursor:pointer;"><input type="checkbox" checked /> <code>cpu|ready_summation</code> (ms)</label>
-                    <label style="cursor:pointer;"><input type="checkbox" checked /> <code>mem|usage_average</code> (%)</label>
-                    <label style="cursor:pointer;"><input type="checkbox" /> <code>virtualDisk|totalLatency</code> (ms)</label>
+                    <label style="cursor:pointer;"><input type="checkbox" checked onchange="renderChartWithCurrentFilters()" /> <code>cpu|usage_average</code> (%)</label>
+                    <label style="cursor:pointer;"><input type="checkbox" checked onchange="renderChartWithCurrentFilters()" /> <code>cpu|ready_summation</code> (ms)</label>
+                    <label style="cursor:pointer;"><input type="checkbox" checked onchange="renderChartWithCurrentFilters()" /> <code>mem|usage_average</code> (%)</label>
+                    <label style="cursor:pointer;"><input type="checkbox" onchange="renderChartWithCurrentFilters()" /> <code>virtualDisk|totalLatency</code> (ms)</label>
                   </div>
                 </div>
               </div>
@@ -515,54 +534,68 @@ const server = http.createServer((req, res) => {
                 <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
                   <div style="display:flex; gap:8px; align-items:center;">
                     <span style="font-size:13px; color:#94a3b8; font-weight:600;">Resolution:</span>
-                    <button class="btn-secondary" onclick="alert('Switched to 1-Min Raw Buffer')">1-Min Raw</button>
-                    <button class="btn-primary">5-Min Rollup</button>
-                    <button class="btn-secondary" onclick="alert('Switched to 1-Hour Rollup')">1-Hour Rollup</button>
+                    <button id="res-btn-1m" class="btn-secondary" onclick="changeChartResolution('1m')">1-Min Raw</button>
+                    <button id="res-btn-5m" class="btn-primary" onclick="changeChartResolution('5m')">5-Min Rollup</button>
+                    <button id="res-btn-1h" class="btn-secondary" onclick="changeChartResolution('1h')">1-Hour Rollup</button>
+                    <button id="reset-zoom-btn" class="btn-secondary" style="display:none; background:#78350f; color:#fcd34d;" onclick="resetChartZoom()">↺ Reset Zoom</button>
                   </div>
-                  <button class="btn-secondary" onclick="alert('Exporting metrics timeseries dataset...')">📥 Export CSV</button>
+                  <button class="btn-secondary" onclick="exportMetricsCsv()">📥 Export CSV</button>
                 </div>
 
-                <div class="card">
-                  <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+                <div class="card" style="position:relative;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                     <h3>CPU Utilization (%) vs CPU Ready Time (ms)</h3>
-                    <div style="font-size:12px; color:#94a3b8;">🔵 VM-007 CPU % | 🟠 VM-007 Ready ms</div>
+                    <div style="display:flex; gap:16px; font-size:12px; font-weight:600;">
+                      <span style="color:#3b82f6;">🔵 Left Y-Axis: CPU % (0 - 100%)</span>
+                      <span style="color:#f59e0b;">🟠 Right Y-Axis: CPU Ready ms (0 - 40ms)</span>
+                    </div>
                   </div>
-                  <div style="background:#0f172a; height:180px; border-radius:6px; padding:16px; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-                    <svg width="100%" height="100" style="overflow:visible;">
-                      <path d="M 0 60 Q 100 20, 200 70 T 400 30 T 600 80 T 800 40" fill="none" stroke="#3b82f6" stroke-width="3" />
-                      <path d="M 0 80 Q 100 90, 200 40 T 400 85 T 600 50 T 800 75" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4" />
+
+                  <!-- Chart Canvas Container -->
+                  <div id="chart-canvas-wrapper" style="position:relative; background:#0f172a; border-radius:6px; border:1px solid #334155; padding:8px; user-select:none;">
+                    <svg id="metrics-svg" width="100%" height="240" viewBox="0 0 800 240" style="display:block; cursor:crosshair; overflow:visible;">
+                      <!-- Rendered by JS -->
                     </svg>
-                    <div style="font-size:11px; color:#94a3b8; margin-top:12px;">Synchronized Hover Crosshair • Drag to Zoom Window</div>
+
+                    <!-- Floating Interactive Crosshair Tooltip -->
+                    <div id="chart-tooltip" style="position:absolute; display:none; background:#1e293b; border:1px solid #3b82f6; border-radius:6px; padding:10px 14px; font-size:12px; pointer-events:none; box-shadow:0 10px 15px -3px rgba(0,0,0,0.5); z-index:10; white-space:nowrap;"></div>
+                  </div>
+
+                  <div style="display:flex; justify-content:space-between; font-size:11px; color:#94a3b8; margin-top:8px;">
+                    <span>💡 <strong>Hover Crosshair</strong>: Move mouse across chart to inspect values & timestamp</span>
+                    <span>🔍 <strong>Drag-to-Zoom</strong>: Click & drag mouse across plot area to zoom into time window</span>
                   </div>
                 </div>
 
                 <div class="grid-4">
                   <div class="stat-card" style="border-left-color:#3b82f6;">
                     <div style="font-size:12px; color:#94a3b8;">Minimum (Min)</div>
-                    <div class="stat-value">12.4%</div>
+                    <div class="stat-value" id="stat-min">12.4%</div>
                   </div>
                   <div class="stat-card" style="border-left-color:#ef4444;">
                     <div style="font-size:12px; color:#94a3b8;">Maximum (Max)</div>
-                    <div class="stat-value">98.2%</div>
+                    <div class="stat-value" id="stat-max" style="color:#fca5a5;">98.2%</div>
                   </div>
                   <div class="stat-card" style="border-left-color:#10b981;">
                     <div style="font-size:12px; color:#94a3b8;">Average (Avg)</div>
-                    <div class="stat-value">45.1%</div>
+                    <div class="stat-value" id="stat-avg">45.1%</div>
                   </div>
                   <div class="stat-card" style="border-left-color:#f59e0b;">
                     <div style="font-size:12px; color:#94a3b8;">95th Percentile (P95)</div>
-                    <div class="stat-value">88.4%</div>
+                    <div class="stat-value" id="stat-p95" style="color:#fcd34d;">88.4%</div>
                   </div>
                 </div>
               </div>
             </div>
           \`;
+
+          // Initialize Interactive Metrics Chart
+          initMetricsChart('5m');
         }
 
         // ROUTE 5: Detail Object Page (/objects/:resourceUuid)
         else if (path.startsWith('/objects/')) {
           const resourceUuid = path.split('/objects/')[1] || 'vm-007';
-          const objDetail = await fetchApi('/objects/' + resourceUuid) || {};
 
           app.innerHTML = \`
             <div style="margin-bottom:20px;">
@@ -604,15 +637,42 @@ const server = http.createServer((req, res) => {
 
             <div class="grid-2" style="margin-bottom:20px;">
               <div class="card">
-                <h4>CPU Utilization (%)</h4>
-                <div style="background:#0f172a; height:100px; border-radius:4px; margin-top:8px; display:flex; align-items:center; justify-content:center; color:#3b82f6; font-weight:bold;">
-                  📈 Current: 94% Avg | Peak: 98%
+                <h4 style="margin-bottom:8px;">CPU Utilization (%) with Time Scale</h4>
+                <div style="background:#0f172a; padding:12px; border-radius:6px; border:1px solid #334155;">
+                  <svg width="100%" height="120" viewBox="0 0 400 120">
+                    <line x1="30" y1="20" x2="380" y2="20" stroke="#334155" stroke-dasharray="2 2" />
+                    <line x1="30" y1="50" x2="380" y2="50" stroke="#334155" stroke-dasharray="2 2" />
+                    <line x1="30" y1="80" x2="380" y2="80" stroke="#334155" stroke-dasharray="2 2" />
+                    <text x="25" y="24" fill="#3b82f6" font-size="10" text-anchor="end">100%</text>
+                    <text x="25" y="54" fill="#3b82f6" font-size="10" text-anchor="end">50%</text>
+                    <text x="25" y="84" fill="#3b82f6" font-size="10" text-anchor="end">0%</text>
+                    <text x="30" y="105" fill="#94a3b8" font-size="10" text-anchor="middle">00:00</text>
+                    <text x="117" y="105" fill="#94a3b8" font-size="10" text-anchor="middle">06:00</text>
+                    <text x="205" y="105" fill="#94a3b8" font-size="10" text-anchor="middle">12:00</text>
+                    <text x="292" y="105" fill="#94a3b8" font-size="10" text-anchor="middle">18:00</text>
+                    <text x="380" y="105" fill="#94a3b8" font-size="10" text-anchor="middle">Now</text>
+                    <path d="M 30 70 Q 117 30, 205 60 T 292 25 T 380 40" fill="none" stroke="#3b82f6" stroke-width="2" />
+                  </svg>
                 </div>
               </div>
+
               <div class="card">
-                <h4>Memory Consumed (KB)</h4>
-                <div style="background:#0f172a; height:100px; border-radius:4px; margin-top:8px; display:flex; align-items:center; justify-content:center; color:#10b981; font-weight:bold;">
-                  📈 Consumed: 32 GB / 64 GB Configured
+                <h4 style="margin-bottom:8px;">Memory Consumed (GB) with Time Scale</h4>
+                <div style="background:#0f172a; padding:12px; border-radius:6px; border:1px solid #334155;">
+                  <svg width="100%" height="120" viewBox="0 0 400 120">
+                    <line x1="30" y1="20" x2="380" y2="20" stroke="#334155" stroke-dasharray="2 2" />
+                    <line x1="30" y1="50" x2="380" y2="50" stroke="#334155" stroke-dasharray="2 2" />
+                    <line x1="30" y1="80" x2="380" y2="80" stroke="#334155" stroke-dasharray="2 2" />
+                    <text x="25" y="24" fill="#10b981" font-size="10" text-anchor="end">64GB</text>
+                    <text x="25" y="54" fill="#10b981" font-size="10" text-anchor="end">32GB</text>
+                    <text x="25" y="84" fill="#10b981" font-size="10" text-anchor="end">0GB</text>
+                    <text x="30" y="105" fill="#94a3b8" font-size="10" text-anchor="middle">00:00</text>
+                    <text x="117" y="105" fill="#94a3b8" font-size="10" text-anchor="middle">06:00</text>
+                    <text x="205" y="105" fill="#94a3b8" font-size="10" text-anchor="middle">12:00</text>
+                    <text x="292" y="105" fill="#94a3b8" font-size="10" text-anchor="middle">18:00</text>
+                    <text x="380" y="105" fill="#94a3b8" font-size="10" text-anchor="middle">Now</text>
+                    <path d="M 30 50 Q 117 45, 205 52 T 292 48 T 380 50" fill="none" stroke="#10b981" stroke-width="2" />
+                  </svg>
                 </div>
               </div>
             </div>
@@ -637,6 +697,12 @@ const server = http.createServer((req, res) => {
               <p style="color:#94a3b8; font-size:14px;">Manage connected VCF Operations 9 instances, authentication credentials, and data retention rules</p>
             </div>
 
+            <!-- Live System Health Banner -->
+            <div class="health-banner" style="border:1px solid var(--border-color); border-radius:6px; margin-bottom:20px;">
+              <span class="badge badge-healthy">🟢 Ingestion Engine Online</span>
+              <span style="color:#94a3b8">Connected to 5 VCF Operations 9 instances. Last 1-minute delta poll completed 8s ago.</span>
+            </div>
+
             <div class="card" style="margin-bottom:20px;">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
                 <h3>VCF Operations 9 Instances Management</h3>
@@ -653,8 +719,8 @@ const server = http.createServer((req, res) => {
                     <td><code>vcf-ops-01.corp.local</code></td>
                     <td>Option A: OpsToken (Local)</td>
                     <td>60 seconds</td>
-                    <td><span className="badge badge-healthy">HEALTHY</span></td>
-                    <td><button className="btn-secondary" onclick="openAddInstanceModal()">Edit</button></td>
+                    <td><span class="badge badge-healthy">HEALTHY</span></td>
+                    <td><button class="btn-secondary" onclick="openAddInstanceModal()">Edit</button></td>
                   </tr>
                   <tr>
                     <td><strong>VCF-Ops-02</strong></td>
@@ -662,7 +728,7 @@ const server = http.createServer((req, res) => {
                     <td>Option B: Bearer Token (VIDB SSO)</td>
                     <td>60 seconds</td>
                     <td><span className="badge badge-healthy">HEALTHY</span></td>
-                    <td><button className="btn-secondary" onclick="openAddInstanceModal()">Edit</button></td>
+                    <td><button class="btn-secondary" onclick="openAddInstanceModal()">Edit</button></td>
                   </tr>
                 </tbody>
               </table>
@@ -686,6 +752,309 @@ const server = http.createServer((req, res) => {
             <div id="modal-container"></div>
           \`;
         }
+      }
+
+      // --- Interactive Metrics Chart Engine Functions ---
+      function initMetricsChart(res) {
+        metricsChartState.resolution = res || '5m';
+        const now = Date.now();
+        const stepMs = metricsChartState.resolution === '1m' ? 60000 : metricsChartState.resolution === '1h' ? 3600000 : 300000;
+        const count = metricsChartState.resolution === '1m' ? 120 : metricsChartState.resolution === '1h' ? 24 : 72;
+
+        const data = [];
+        for (let i = count; i >= 0; i--) {
+          const ts = now - i * stepMs;
+          const cpu = Math.round(Math.sin(i / 6) * 30 + 50 + (Math.random() * 8 - 4));
+          const ready = Math.round(Math.cos(i / 6) * 12 + 18 + (Math.random() * 4 - 2));
+          data.push({
+            timestamp: ts,
+            cpu: Math.max(5, Math.min(100, cpu)),
+            ready: Math.max(1, Math.min(40, ready))
+          });
+        }
+
+        metricsChartState.fullData = data;
+        metricsChartState.activeData = [...data];
+        metricsChartState.isZoomed = false;
+
+        renderMetricsSvg();
+        updateMetricsStats();
+        bindChartEvents();
+      }
+
+      function changeChartResolution(res) {
+        document.querySelectorAll('[id^="res-btn-"]').forEach(btn => {
+          btn.className = 'btn-secondary';
+        });
+        document.getElementById('res-btn-' + res).className = 'btn-primary';
+        initMetricsChart(res);
+      }
+
+      function renderChartWithCurrentFilters() {
+        initMetricsChart(metricsChartState.resolution);
+      }
+
+      function renderMetricsSvg() {
+        const svg = document.getElementById('metrics-svg');
+        if (!svg) return;
+
+        const data = metricsChartState.activeData;
+        const N = data.length;
+        if (N === 0) return;
+
+        const padL = 50, padR = 50, padT = 20, padB = 40;
+        const width = 800, height = 240;
+        const plotW = width - padL - padR;
+        const plotH = height - padT - padB;
+
+        // Construct Gridlines and Axes
+        let html = \`
+          <!-- Background Gridlines -->
+          <line x1="\${padL}" y1="\${padT}" x2="\${width - padR}" y2="\${padT}" stroke="#334155" stroke-dasharray="3 3" />
+          <line x1="\${padL}" y1="\${padT + plotH * 0.25}" x2="\${width - padR}" y2="\${padT + plotH * 0.25}" stroke="#334155" stroke-dasharray="3 3" />
+          <line x1="\${padL}" y1="\${padT + plotH * 0.5}" x2="\${width - padR}" y2="\${padT + plotH * 0.5}" stroke="#334155" stroke-dasharray="3 3" />
+          <line x1="\${padL}" y1="\${padT + plotH * 0.75}" x2="\${width - padR}" y2="\${padT + plotH * 0.75}" stroke="#334155" stroke-dasharray="3 3" />
+          <line x1="\${padL}" y1="\${padT + plotH}" x2="\${width - padR}" y2="\${padT + plotH}" stroke="#334155" />
+
+          <!-- Left Y-Axis (CPU %: 0% to 100%) -->
+          <text x="\${padL - 8}" y="\${padT + 4}" fill="#3b82f6" font-size="11" font-weight="bold" text-anchor="end">100%</text>
+          <text x="\${padL - 8}" y="\${padT + plotH * 0.25 + 4}" fill="#3b82f6" font-size="11" text-anchor="end">75%</text>
+          <text x="\${padL - 8}" y="\${padT + plotH * 0.5 + 4}" fill="#3b82f6" font-size="11" text-anchor="end">50%</text>
+          <text x="\${padL - 8}" y="\${padT + plotH * 0.75 + 4}" fill="#3b82f6" font-size="11" text-anchor="end">25%</text>
+          <text x="\${padL - 8}" y="\${padT + plotH + 4}" fill="#3b82f6" font-size="11" font-weight="bold" text-anchor="end">0%</text>
+          <line x1="\${padL}" y1="\${padT}" x2="\${padL}" y2="\${padT + plotH}" stroke="#3b82f6" stroke-width="1.5" />
+
+          <!-- Right Y-Axis (CPU Ready ms: 0ms to 40ms) -->
+          <text x="\${width - padR + 8}" y="\${padT + 4}" fill="#f59e0b" font-size="11" font-weight="bold" text-anchor="start">40ms</text>
+          <text x="\${width - padR + 8}" y="\${padT + plotH * 0.25 + 4}" fill="#f59e0b" font-size="11" text-anchor="start">30ms</text>
+          <text x="\${width - padR + 8}" y="\${padT + plotH * 0.5 + 4}" fill="#f59e0b" font-size="11" text-anchor="start">20ms</text>
+          <text x="\${width - padR + 8}" y="\${padT + plotH * 0.75 + 4}" fill="#f59e0b" font-size="11" text-anchor="start">10ms</text>
+          <text x="\${width - padR + 8}" y="\${padT + plotH + 4}" fill="#f59e0b" font-size="11" font-weight="bold" text-anchor="start">0ms</text>
+          <line x1="\${width - padR}" y1="\${padT}" x2="\${width - padR}" y2="\${padT + plotH}" stroke="#f59e0b" stroke-width="1.5" />
+        \`;
+
+        // X-Axis Time Ticks
+        const tickCount = 6;
+        for (let k = 0; k <= tickCount; k++) {
+          const idx = Math.round((k / tickCount) * (N - 1));
+          const item = data[idx];
+          if (item) {
+            const tx = padL + (k / tickCount) * plotW;
+            const d = new Date(item.timestamp);
+            const timeStr = d.getUTCHours().toString().padStart(2, '0') + ':' + d.getUTCMinutes().toString().padStart(2, '0') + ' UTC';
+
+            html += \`
+              <line x1="\${tx}" y1="\${padT + plotH}" x2="\${tx}" y2="\${padT + plotH + 5}" stroke="#94a3b8" />
+              <text x="\${tx}" y="\${padT + plotH + 20}" fill="#94a3b8" font-size="11" text-anchor="middle">\${timeStr}</text>
+            \`;
+          }
+        }
+
+        // Generate Path Points
+        let pathCpu = '', pathReady = '';
+        for (let i = 0; i < N; i++) {
+          const item = data[i];
+          const cx = padL + (i / (N - 1)) * plotW;
+          const cyCpu = padT + plotH - (item.cpu / 100) * plotH;
+          const cyReady = padT + plotH - (item.ready / 40) * plotH;
+
+          if (i === 0) {
+            pathCpu += \`M \${cx} \${cyCpu}\`;
+            pathReady += \`M \${cx} \${cyReady}\`;
+          } else {
+            pathCpu += \` L \${cx} \${cyCpu}\`;
+            pathReady += \` L \${cx} \${cyReady}\`;
+          }
+        }
+
+        html += \`
+          <!-- Data Series Paths -->
+          <path d="\${pathCpu}" fill="none" stroke="#3b82f6" stroke-width="2.5" />
+          <path d="\${pathReady}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3" />
+
+          <!-- Dynamic Crosshair Guideline & Tooltip Dots -->
+          <line id="crosshair-line" x1="0" y1="\${padT}" x2="0" y2="\${padT + plotH}" stroke="#94a3b8" stroke-dasharray="3 3" stroke-width="1.5" visibility="hidden" />
+          <circle id="dot-cpu" r="5" fill="#3b82f6" stroke="#fff" stroke-width="2" visibility="hidden" />
+          <circle id="dot-ready" r="5" fill="#f59e0b" stroke="#fff" stroke-width="2" visibility="hidden" />
+
+          <!-- Drag-to-Zoom Selection Overlay -->
+          <rect id="drag-rect" x="0" y="\${padT}" width="0" height="\${plotH}" fill="rgba(59,130,246,0.25)" stroke="#3b82f6" stroke-dasharray="2 2" visibility="hidden" />
+        \`;
+
+        svg.innerHTML = html;
+      }
+
+      function updateMetricsStats() {
+        const data = metricsChartState.activeData;
+        if (!data || data.length === 0) return;
+
+        const cpus = data.map(d => d.cpu).sort((a, b) => a - b);
+        const min = cpus[0];
+        const max = cpus[cpus.length - 1];
+        const sum = cpus.reduce((acc, v) => acc + v, 0);
+        const avg = (sum / cpus.length).toFixed(1);
+        const p95Idx = Math.floor(cpus.length * 0.95);
+        const p95 = cpus[p95Idx];
+
+        document.getElementById('stat-min').innerText = min + '%';
+        document.getElementById('stat-max').innerText = max + '%';
+        document.getElementById('stat-avg').innerText = avg + '%';
+        document.getElementById('stat-p95').innerText = p95 + '%';
+      }
+
+      function bindChartEvents() {
+        const svg = document.getElementById('metrics-svg');
+        const tooltip = document.getElementById('chart-tooltip');
+        if (!svg) return;
+
+        const padL = 50, padR = 50, padT = 20, padB = 40;
+        const width = 800, plotW = width - padL - padR, plotH = 240 - padT - padB;
+
+        svg.onmousemove = function(e) {
+          const data = metricsChartState.activeData;
+          const N = data.length;
+          if (N === 0) return;
+
+          const rect = svg.getBoundingClientRect();
+          const svgX = ((e.clientX - rect.left) / rect.width) * width;
+          const clampedX = Math.max(padL, Math.min(width - padR, svgX));
+
+          let ratio = (clampedX - padL) / plotW;
+          ratio = Math.max(0, Math.min(1, ratio));
+
+          const i = Math.round(ratio * (N - 1));
+          const item = data[i];
+          if (!item) return;
+
+          const cx = padL + (i / (N - 1)) * plotW;
+          const cyCpu = padT + plotH - (item.cpu / 100) * plotH;
+          const cyReady = padT + plotH - (item.ready / 40) * plotH;
+
+          // Drag-to-zoom update
+          if (metricsChartState.isDragging) {
+            metricsChartState.dragCurrentIdx = i;
+            const startX = padL + (metricsChartState.dragStartIdx / (N - 1)) * plotW;
+            const currentX = cx;
+
+            const rx = Math.min(startX, currentX);
+            const rw = Math.abs(currentX - startX);
+
+            const dragRect = document.getElementById('drag-rect');
+            if (dragRect) {
+              dragRect.setAttribute('x', rx.toString());
+              dragRect.setAttribute('width', rw.toString());
+              dragRect.setAttribute('visibility', 'visible');
+            }
+          }
+
+          // Crosshair and Dots update
+          const crossLine = document.getElementById('crosshair-line');
+          const dotCpu = document.getElementById('dot-cpu');
+          const dotReady = document.getElementById('dot-ready');
+
+          if (crossLine && dotCpu && dotReady) {
+            crossLine.setAttribute('x1', cx.toString());
+            crossLine.setAttribute('x2', cx.toString());
+            crossLine.setAttribute('visibility', 'visible');
+
+            dotCpu.setAttribute('cx', cx.toString());
+            dotCpu.setAttribute('cy', cyCpu.toString());
+            dotCpu.setAttribute('visibility', 'visible');
+
+            dotReady.setAttribute('cx', cx.toString());
+            dotReady.setAttribute('cy', cyReady.toString());
+            dotReady.setAttribute('visibility', 'visible');
+          }
+
+          // Tooltip position & text update
+          if (tooltip) {
+            const d = new Date(item.timestamp);
+            const timeStr = d.getUTCHours().toString().padStart(2, '0') + ':' + d.getUTCMinutes().toString().padStart(2, '0') + ':' + d.getUTCSeconds().toString().padStart(2, '0') + ' UTC';
+
+            tooltip.style.display = 'block';
+            tooltip.style.left = (e.clientX - rect.left + 15) + 'px';
+            tooltip.style.top = (e.clientY - rect.top - 20) + 'px';
+            tooltip.innerHTML = \`
+              <div style="font-weight:bold; color:#f8fafc; margin-bottom:4px;">📅 \${timeStr}</div>
+              <div style="color:#3b82f6;">🔵 CPU Usage: <strong>\${item.cpu}%</strong></div>
+              <div style="color:#f59e0b;">🟠 CPU Ready: <strong>\${item.ready} ms</strong></div>
+            \`;
+          }
+        };
+
+        svg.onmousedown = function(e) {
+          const data = metricsChartState.activeData;
+          const N = data.length;
+          if (N === 0) return;
+
+          const rect = svg.getBoundingClientRect();
+          const svgX = ((e.clientX - rect.left) / rect.width) * width;
+          const clampedX = Math.max(padL, Math.min(width - padR, svgX));
+          const ratio = Math.max(0, Math.min(1, (clampedX - padL) / plotW));
+          const idx = Math.round(ratio * (N - 1));
+
+          metricsChartState.isDragging = true;
+          metricsChartState.dragStartIdx = idx;
+          metricsChartState.dragCurrentIdx = idx;
+        };
+
+        svg.onmouseup = function() {
+          if (metricsChartState.isDragging) {
+            metricsChartState.isDragging = false;
+            const i1 = Math.min(metricsChartState.dragStartIdx, metricsChartState.dragCurrentIdx);
+            const i2 = Math.max(metricsChartState.dragStartIdx, metricsChartState.dragCurrentIdx);
+
+            if (i2 - i1 >= 2) {
+              metricsChartState.activeData = metricsChartState.activeData.slice(i1, i2 + 1);
+              metricsChartState.isZoomed = true;
+
+              renderMetricsSvg();
+              updateMetricsStats();
+              document.getElementById('reset-zoom-btn').style.display = 'inline-block';
+            } else {
+              const dragRect = document.getElementById('drag-rect');
+              if (dragRect) dragRect.setAttribute('visibility', 'hidden');
+            }
+          }
+        };
+
+        svg.onmouseleave = function() {
+          metricsChartState.isDragging = false;
+          if (tooltip) tooltip.style.display = 'none';
+
+          const crossLine = document.getElementById('crosshair-line');
+          const dotCpu = document.getElementById('dot-cpu');
+          const dotReady = document.getElementById('dot-ready');
+          const dragRect = document.getElementById('drag-rect');
+
+          if (crossLine) crossLine.setAttribute('visibility', 'hidden');
+          if (dotCpu) dotCpu.setAttribute('visibility', 'hidden');
+          if (dotReady) dotReady.setAttribute('visibility', 'hidden');
+          if (dragRect) dragRect.setAttribute('visibility', 'hidden');
+        };
+      }
+
+      function resetChartZoom() {
+        metricsChartState.activeData = [...metricsChartState.fullData];
+        metricsChartState.isZoomed = false;
+        renderMetricsSvg();
+        updateMetricsStats();
+        document.getElementById('reset-zoom-btn').style.display = 'none';
+      }
+
+      function exportMetricsCsv() {
+        const data = metricsChartState.activeData;
+        let csv = 'Timestamp (UTC),CPU Utilization (%),CPU Ready Time (ms)\\n';
+        for (const d of data) {
+          csv += new Date(d.timestamp).toISOString() + ',' + d.cpu + ',' + d.ready + '\\n';
+        }
+
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'metrics_export_' + Date.now() + '.csv';
+        a.click();
       }
 
       function filterAlertsTable() {

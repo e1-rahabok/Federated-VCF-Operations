@@ -77,12 +77,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Live System Ingestion Health Banner */}
-      <div style={{ background: '#0f172a', padding: '6px 24px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid #1e293b' }}>
-        <span className="badge badge-healthy">🟢 Ingestion Online</span>
-        <span style={{ color: '#94a3b8' }}>All 5 VCF Operations 9 instances connected. Last 1-minute delta poll completed 8s ago.</span>
-      </div>
     </header>
   );
 };

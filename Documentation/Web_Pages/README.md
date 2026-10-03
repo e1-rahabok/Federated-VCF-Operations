@@ -42,17 +42,12 @@ graph TD
             N4["📅 Time Range Picker: Last 1h | 6h | 24h | 7d | Custom"]
         end
 
-        subgraph System_Banner ["Ingestion System Health Banner"]
-            B1["🟢 Status: All connected VCF instances healthy (Last Poll: 10s ago)"]
-        end
-
         subgraph Dynamic_View ["Page Content Container"]
             P1["🖥️ Active Route Page View (Home / Alerts / Metrics / Settings / Detail Pages)"]
         end
     end
 
-    Navigation_Bar --> System_Banner
-    System_Banner --> Dynamic_View
+    Navigation_Bar --> Dynamic_View
 ```
 
 ### Global Header Controls Breakdown
@@ -62,7 +57,6 @@ graph TD
 | **Global Navigation Links** | Nav Menu Tabs | Instant route switching (`/`, `/alerts`, `/metrics`, `/settings`). |
 | **Global Target Instance Selector** | Multi-Select Dropdown | Filter all page queries across single, multiple, or all connected VCF Operations instances. |
 | **Global Time Range Picker** | Presets & Custom Picker | Select time window (`Last 1 Hour`, `6 Hours`, `24 Hours`, `7 Days`, `30 Days`, `Custom Range`). |
-| **Real-Time Health Indicator** | Status Badge | Live telemetry badge showing scheduler polling health and timestamp of last ingestion loop. |
 
 ---
 

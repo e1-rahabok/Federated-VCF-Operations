@@ -13,6 +13,10 @@ graph TD
     subgraph Settings_Workspace ["System & VCF Configuration Workspace"]
         direction TB
 
+        subgraph Ingestion_Banner ["Live Ingestion System Health Banner"]
+            B1["🟢 Status: Ingestion Engine Online (Connected to 5 VCF instances, 1-min poll completed 8s ago)"]
+        end
+
         subgraph Instance_Section ["VCF Operations Instances Management Panel"]
             I_Header["🌐 Registered Instances Table Header | Action: + Add VCF Instance"]
             I_Table["📋 Instance Grid Columns: Instance Name | Hostname / IP | Auth Type | Polling Interval | Status Badge | Actions (Edit / Delete)"]
@@ -39,6 +43,7 @@ graph TD
         end
     end
 
+    Ingestion_Banner --> Instance_Section
     Instance_Section --> Auth_Modal
     Auth_Modal --> Retention_Section
 ```
@@ -47,6 +52,7 @@ graph TD
 
 | Section | Component | Features & User Interactions |
 | :--- | :--- | :--- |
+| **Ingestion System Health Banner** | Top Status Banner | Real-time status banner displaying ingestion engine health, total connected instances, and last 1-minute polling timestamp. |
 | **Instance Management Table** | Top Panel | Interactive table displaying registered VCF Operations instances, status badges (`Healthy`, `Unreachable`, `Auth Error`), and edit/delete triggers. |
 | **Dual Auth Modal** | Modal Dialog | Supports **Option A** (Local `OpsToken` credentials) and **Option B** (VCF SSO `Bearer Token` via Identity Broker). Includes a "Test Connection" button that validates endpoints prior to saving. |
 | **Retention Policy Form** | Bottom Panel | Configures raw metric buffer purge thresholds (hours) and long-term rollup retention windows (days). |

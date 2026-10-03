@@ -390,7 +390,16 @@ erDiagram
 2. **Metrics Analysis Workspace**:
    * Resource Tree: Collapsible sidebar tree selector with search filter.
    * Metric Selector: Checkbox panel for standard metrics (CPU, Memory, Storage, Network).
-   * Charting Canvas: Synchronized multi-metric chart renderer with mouse drag zoom and resolution selector (1-min raw, 5-min summary, 1-hr summary).
+   * Charting Canvas: Synchronized dual-axis multi-metric SVG chart renderer featuring:
+     - **Dual Y-Axes**: Left Y-axis in blue (`#3b82f6`) for CPU Utilization %, Right Y-axis in amber (`#f59e0b`) for CPU Ready Time ms.
+     - **X-Axis Time Scale**: Horizontal UTC timestamps (`HH:MM UTC`) across the active window with background gridlines (`#334155`).
+     - **Synchronized Hover Crosshair**: Dynamic vertical guideline, dual series highlight dots, and floating tooltip displaying timestamp and metric values.
+     - **Drag-to-Zoom Window**: Selection overlay box, window zoom re-calculation, percentile cards update (`Min`, `Max`, `Avg`, `P95`), and `↺ Reset Zoom` button.
+     - **Granularity Switcher**: Resolution toggle buttons for `1-Min Raw`, `5-Min Rollup`, and `1-Hour Rollup`.
+3. **System & VCF Configuration Workspace**:
+   * Live Ingestion Health Banner: Real-time status banner displaying ingestion engine online state, connected instance count, and last 1-minute delta poll timestamp.
+   * Registered Instances Table: Instance connection profiles with dual authentication (`OpsToken` vs `Bearer Token`) and connection testing modal.
+   * Retention Policies Form: Configurable raw buffer purge threshold (hours) and rollup summary retention window (days).
 
 ---
 

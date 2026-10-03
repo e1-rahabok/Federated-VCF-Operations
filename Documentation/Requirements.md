@@ -56,7 +56,7 @@ This document defines the functional and technical requirements for the Federate
 * **REQ-UI-002**: The UI MUST provide a global navigation bar to switch between Home, Alerts Analysis, Metrics Analysis, and System Settings.
 * **REQ-UI-003**: The UI MUST feature a global target selector. Users can select all VCF instances or specific instances.
 * **REQ-UI-004**: The UI MUST feature a global time range picker (Last 1 Hour, 6 Hours, 24 Hours, 7 Days, Custom Range).
-* **REQ-UI-005**: The UI MUST display real-time system status indicators showing ingestion health for each VCF instance.
+* **REQ-UI-005**: The UI MUST display real-time system status indicators showing ingestion engine online status, connected VCF instances count, and last 1-minute delta poll timestamp, located specifically on the **System & VCF Configuration Page (`/settings`)**.
 
 ### 2.2 Personalized Home Page
 * **REQ-UI-006**: The system MUST present each authenticated user with a personalized Home Page.
@@ -85,6 +85,10 @@ This document defines the functional and technical requirements for the Federate
 * **REQ-UI-019**: Clicking an Object from the Home Page or Resource Tree MUST navigate the user to a Detail Object Page.
 * **REQ-UI-020**: The Detail Object Page MUST feature a resource selection tree and dynamic metric charts (CPU Usage %, Memory Usage %, Disk Latency).
 * **REQ-UI-021**: The chart MUST support dynamic resolution switching (Raw 1-Min, 5-Min Rollup, 1-Hour Rollup) and synchronized drag-to-zoom.
+* **REQ-UI-021a**: The chart MUST feature **Dual Y-Axes** with unit auto-scaling (e.g. Left Y-axis in blue `#3b82f6` for percentage `%` from `0%` to `100%`, Right Y-axis in amber `#f59e0b` for latency/time `ms` from `0ms` to `40ms`).
+* **REQ-UI-021b**: The chart MUST feature an **X-Axis Time Scale** with formatted UTC timestamps (`HH:MM UTC`) across the active time window and horizontal reference gridlines (`#334155`).
+* **REQ-UI-021c**: The chart MUST feature a **Synchronized Hover Crosshair** with a vertical dashed guideline across all active series, dynamic data point highlights on dual line paths, and a floating tooltip displaying exact UTC timestamp, CPU Usage %, and CPU Ready Time ms.
+* **REQ-UI-021d**: The chart MUST feature a **Drag-to-Zoom Window** with a translucent selection rectangle across the plot area, instant zoom re-rendering, statistical card recalculation (`Minimum`, `Maximum`, `Mean Average`, `95th Percentile`), and a top-right `↺ Reset Zoom` button.
 * **REQ-UI-022**: The Detail Object Page MUST feature a direct launch button: **"Open Object in VCF Operations"**.
 * **REQ-UI-023**: Clicking **"Open Object in VCF Operations"** MUST open the exact object context in the source VCF Operations 9 instance web console in a new browser tab.
 
