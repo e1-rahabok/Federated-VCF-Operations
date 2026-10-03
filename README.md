@@ -24,34 +24,38 @@ It polls metrics, objects, and alerts every 1 minute from multiple VCF Operation
 
 ## 📁 Repository Directory Layout
 
-```mermaid
-graph LR
-    Root[📁 federated-vcf-ops] --> GH[📁 .github/]
-    GH --> GH1[⚙️ workflows/ci.yml — CI build pipeline]
-    GH --> GH2[📋 ISSUE_TEMPLATE/ — Bug report & feature templates]
-    GH --> GH3[📝 PULL_REQUEST_TEMPLATE.md — PR guidelines]
-
-    Root --> CONF[📁 Configuration/]
-    CONF --> C1[📄 metrics_list.yaml — Metrics collected per object type]
-    CONF --> C2[📄 alerts_list.yaml — Alert filters monitored per object type]
-
-    Root --> DOC[📁 Documentation/]
-    DOC --> D1[📄 Requirements.md — Functional features & Mermaid user flows]
-    DOC --> D2[📄 Solution.md — Technical solution architecture & ERDs]
-    DOC --> D3[📄 Architecture.md — Architecture overview & data flow]
-    DOC --> D4[📄 Configuration_Guide.md — Config guide]
-
-    Root --> SRC[📁 src/]
-    SRC --> B[📁 backend/ — Ingestion engine & REST API]
-    SRC --> F[📁 frontend/ — React UI pages & components]
-
-    Root --> SCR[📁 scripts/]
-    SCR --> S1[📜 prune_data.ps1 — Database retention cleanup]
-
-    Root --> ENV[🔑 .env.example — Environment template]
-    Root --> DOCK[🐳 Dockerfile & docker-compose.yml — Container specs]
-    Root --> PKG[📦 package.json — Project configuration]
-    Root --> READ[📖 README.md & LICENSE — Overview & MIT License]
+```
+.
+├── .github/                     # GitHub Workflows and Issue/PR templates
+│   ├── workflows/ci.yml         # GitHub Actions CI pipeline
+│   ├── ISSUE_TEMPLATE/          # Bug report and feature request templates
+│   │   ├── bug_report.md
+│   │   └── feature_request.md
+│   └── PULL_REQUEST_TEMPLATE.md # Pull Request description guidelines
+├── Configuration/               # Human-friendly YAML collection configs
+│   ├── metrics_list.yaml        # Metrics collected per object type
+│   └── alerts_list.yaml         # Alert filters monitored per object type
+├── Documentation/               # Project & Technical Specifications
+│   ├── Requirements.md          # Functional features & Mermaid user flow diagrams
+│   ├── Solution.md              # Technical solution architecture & Mermaid ERDs
+│   ├── Architecture.md          # Component relationships & data flow summary
+│   └── Configuration_Guide.md   # Guide for configuring metric/alert rules
+├── src/                         # Application Source Code Scaffolding
+│   ├── backend/                 # Node.js Ingestion Engine, DB & REST API
+│   │   ├── api/                 # REST routes
+│   │   ├── db/                  # Database models & migrations
+│   │   ├── ingestion/           # Polling scheduler & watermark manager
+│   │   └── index.ts             # Backend entry point
+│   └── frontend/                # React 18 Web UI
+│       └── pages/               # Home, Alerts, & Metrics pages
+├── scripts/                     # Operational scripts
+│   └── prune_data.ps1           # Database retention cleanup script
+├── .env.example                 # Environment variables configuration template
+├── .gitignore                   # Standard gitignore (Node, Docker, SQLite, OS)
+├── Dockerfile                   # Multi-stage production container manifest
+├── docker-compose.yml           # Production Docker Compose orchestration
+├── LICENSE                      # MIT Open Source License
+└── README.md                    # Primary repository landing overview with badges
 ```
 
 ---
