@@ -25,50 +25,44 @@ It polls metrics, objects, and alerts every 1 minute from multiple VCF Operation
 ## 📁 Repository Directory Layout
 
 ```mermaid
-flowchart TD
-    classDef folder fill:#1e293b,stroke:#38bdf8,stroke-width:1px,color:#f8fafc,text-align:left;
-    classDef file fill:#0f172a,stroke:#64748b,stroke-width:1px,color:#cbd5e1,text-align:left;
+flowchart LR
+    classDef folder fill:#1e293b,stroke:#38bdf8,stroke-width:1px,color:#f8fafc;
+    classDef file fill:#0f172a,stroke:#64748b,stroke-width:1px,color:#cbd5e1;
 
-    Root["📁 federated-vcf-ops (Repository Root)"]:::folder
+    Root["📁 federated-vcf-ops"]:::folder
 
-    GH["📁 .github/ — GitHub Workflows & Issue/PR templates"]:::folder
-    GH_CI["⠀ ├── ⚙️ workflows/ci.yml — GitHub Actions CI build pipeline"]:::file
-    GH_IT["⠀ ├── 📋 ISSUE_TEMPLATE/ — Bug report & feature templates"]:::file
-    GH_PR["⠀ └── 📝 PULL_REQUEST_TEMPLATE.md — PR guidelines"]:::file
+    %% .github folder
+    Root --> GH["📁 .github/"]:::folder
+    GH --> GH1["⚙️ workflows/ci.yml<br/><i>GitHub Actions CI pipeline</i>"]:::file
+    GH --> GH2["📋 ISSUE_TEMPLATE/<br/><i>Bug report & feature templates</i>"]:::file
+    GH --> GH3["📝 PULL_REQUEST_TEMPLATE.md<br/><i>Pull request guidelines</i>"]:::file
 
-    CONF["📁 Configuration/ — YAML Metric & Alert Collection Rules"]:::folder
-    CONF_M["⠀ ├── 📄 metrics_list.yaml — Performance metrics collected per object type"]:::file
-    CONF_A["⠀ └── 📄 alerts_list.yaml — Alert filters monitored per object type"]:::file
+    %% Configuration folder
+    Root --> CONF["📁 Configuration/"]:::folder
+    CONF --> C1["📄 metrics_list.yaml<br/><i>Metrics collected per object type</i>"]:::file
+    CONF --> C2["📄 alerts_list.yaml<br/><i>Alert filters monitored per object type</i>"]:::file
 
-    DOC["📁 Documentation/ — Technical Specifications & Operational Guides"]:::folder
-    DOC_R["⠀ ├── 📄 Requirements.md — Functional features & Mermaid user flow diagrams"]:::file
-    DOC_S["⠀ ├── 📄 Solution.md — Technical solution architecture & Mermaid ERDs"]:::file
-    DOC_A["⠀ ├── 📄 Architecture.md — Architecture overview & component relationships"]:::file
-    DOC_C["⠀ └── 📄 Configuration_Guide.md — Guide for configuring metric/alert rules"]:::file
+    %% Documentation folder
+    Root --> DOC["📁 Documentation/"]:::folder
+    DOC --> D1["📄 Requirements.md<br/><i>Functional features & Mermaid user flows</i>"]:::file
+    DOC --> D2["📄 Solution.md<br/><i>Technical solution architecture & Mermaid ERDs</i>"]:::file
+    DOC --> D3["📄 Architecture.md<br/><i>Architecture overview & data flow</i>"]:::file
+    DOC --> D4["📄 Configuration_Guide.md<br/><i>Guide for metric & alert configuration</i>"]:::file
 
-    SRC["📁 src/ — Application Source Code Scaffolding"]:::folder
-    SRC_B["⠀ ├── 📁 backend/ — Node.js Ingestion Engine, DB models & REST API"]:::file
-    SRC_F["⠀ └── 📁 frontend/ — React 18 Web UI (Pages & Components)"]:::file
+    %% src folder
+    Root --> SRC["📁 src/"]:::folder
+    SRC --> B["📁 backend/<br/><i>Node.js Ingestion Engine, DB & REST API</i>"]:::folder
+    SRC --> F["📁 frontend/<br/><i>React 18 Web UI Pages & Components</i>"]:::folder
 
-    SCR["📁 scripts/ — Utility Scripts"]:::folder
-    SCR_P["⠀ └── 📜 prune_data.ps1 — Database retention cleanup script"]:::file
+    %% scripts folder
+    Root --> SCR["📁 scripts/"]:::folder
+    SCR --> S1["📜 prune_data.ps1<br/><i>Database retention cleanup script</i>"]:::file
 
-    ENV["🔑 .env.example — Environment variables configuration template"]:::file
-    DOCK["🐳 Dockerfile & docker-compose.yml — Production container specifications"]:::file
-    PKG["📦 package.json — Node.js project dependencies & build scripts"]:::file
-    READ["📖 README.md & LICENSE — Project documentation & MIT License"]:::file
-
-    Root --> GH
-    GH --> GH_CI --> GH_IT --> GH_PR
-    GH_PR --> CONF
-    CONF --> CONF_M --> CONF_A
-    CONF_A --> DOC
-    DOC --> DOC_R --> DOC_S --> DOC_A --> DOC_C
-    DOC_C --> SRC
-    SRC --> SRC_B --> SRC_F
-    SRC_F --> SCR
-    SCR --> SCR_P
-    SCR_P --> ENV --> DOCK --> PKG --> READ
+    %% Root configuration files
+    Root --> ENV["🔑 .env.example<br/><i>Environment variables template</i>"]:::file
+    Root --> DOCK["🐳 Dockerfile & docker-compose.yml<br/><i>Production container specifications</i>"]:::file
+    Root --> PKG["📦 package.json<br/><i>Node.js project configuration</i>"]:::file
+    Root --> READ["📖 README.md & LICENSE<br/><i>Repository overview & MIT License</i>"]:::file
 ```
 
 ---
