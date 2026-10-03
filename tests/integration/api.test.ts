@@ -38,6 +38,11 @@ test('REST API Gateway Integration Tests - system config metrics API', async () 
   const data = await res.json();
   assert.strictEqual(data.success, true);
   assert.ok(typeof data.yaml === 'string');
+  assert.ok(data.config && typeof data.config === 'object');
+  assert.ok(data.config.object_types.VirtualMachine.metrics.length >= 9);
+  assert.ok(data.config.object_types.HostSystem.metrics.length >= 5);
+  assert.ok(data.config.object_types.ClusterComputeResource.metrics.length >= 5);
+  assert.ok(data.config.object_types.Datastore.metrics.length >= 5);
 });
 
 test('REST API Gateway Integration Tests - system config alerts API', async () => {
@@ -46,6 +51,11 @@ test('REST API Gateway Integration Tests - system config alerts API', async () =
   const data = await res.json();
   assert.strictEqual(data.success, true);
   assert.ok(typeof data.yaml === 'string');
+  assert.ok(data.config && typeof data.config === 'object');
+  assert.ok(data.config.object_types.VirtualMachine.alert_filters.length >= 4);
+  assert.ok(data.config.object_types.HostSystem.alert_filters.length >= 4);
+  assert.ok(data.config.object_types.ClusterComputeResource.alert_filters.length >= 3);
+  assert.ok(data.config.object_types.Datastore.alert_filters.length >= 3);
 });
 
 // --- SPA HTML Route Rendering Tests ---
@@ -89,4 +99,23 @@ test('Test 17: Client JavaScript AST Compilation Test - JS Script Syntax Verific
   assert.doesNotThrow(() => {
     new vm.Script(jsCode);
   }, 'Client-side script in HTML must compile with zero JavaScript syntax errors');
+});
+
+// --- Test 18: Telemetry Configuration API & Dynamic Object Kind Grid Rendering ---
+
+test('Test 18: Dynamic Telemetry Configuration API & YAML Grid Rendering Verification', async () => {
+  const res = await fetch('http://localhost:3000/settings');
+  assert.strictEqual(res.status, 200);
+  const html = await res.text();
+
+  assert.ok(html.includes('parseYamlConfigClient'), 'HTML must include client-side YAML parser function');
+  assert.ok(html.includes('toggleConfigItem'), 'HTML must include toggleConfigItem function');
+  assert.ok(html.includes('addConfigItemPrompt'), 'HTML must include addConfigItemPrompt function');
+
+  // Verify client AST compilation for settings page HTML script
+  const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
+  assert.ok(scriptMatch, 'Settings HTML response must contain a script block');
+  assert.doesNotThrow(() => {
+    new vm.Script(scriptMatch[1]);
+  }, 'Settings page client script must compile with zero AST syntax errors');
 });

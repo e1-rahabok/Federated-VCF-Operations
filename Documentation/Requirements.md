@@ -47,6 +47,7 @@ This document defines the functional and technical requirements for the Federate
 * **REQ-FUN-026**: Collection rules MUST be grouped by object type (`VirtualMachine`, `HostSystem`, `ClusterComputeResource`, `Datastore`).
 * **REQ-FUN-027**: The system MUST allow Administrators to view, edit, add, remove, and toggle metric and alert collection rules directly from the web application UI on the **System & VCF Configuration Page (`/settings`)**.
 * **REQ-FUN-027a**: Upon saving telemetry collection modifications in the UI, the system MUST persist changes to `Configuration/metrics_list.yaml` and `Configuration/alerts_list.yaml` on disk and dynamically reload ingestion rules in memory without requiring an application or server restart.
+* **REQ-FUN-027b**: The system REST API (`/api/v1/system/config/metrics` and `/alerts`) and client UI MUST dynamically parse `metrics_list.yaml` and `alerts_list.yaml` into structured object hierarchies for all 4 supported object kinds (`VirtualMachine`, `HostSystem`, `ClusterComputeResource`, and `Datastore`). Static hardcoded metric rows in telemetry collection grid views are strictly prohibited.
 
 ---
 
@@ -230,6 +231,7 @@ sequenceDiagram
 * **REQ-USA-004**: **Workspace Persistence**: The UI MUST remember the user's last selected VCF instances, filters, and dashboard layout across browser sessions.
 * **REQ-USA-005**: **Clear Error Messages**: The UI MUST show user-friendly notifications when network errors or invalid input values occur.
 * **REQ-UI-027**: **Defensive Component Rendering & Error Boundary**: The client-side application controller MUST wrap view rendering in top-level `try/catch` error boundaries and use defensive data checks (`Array.isArray()`, fallback objects) so network anomalies, API shape changes, or rendering exceptions display recovery notification cards rather than blank screens.
+* **REQ-UI-028**: **Dynamic Telemetry Grid & Kind Tab Synchronization**: The **Telemetry Collection Rules** editor under `/settings` MUST dynamically parse `metrics_list.yaml` and `alerts_list.yaml` and render dynamic grid tables matching whichever object kind tab is active (`VirtualMachine`, `HostSystem`, `ClusterComputeResource`, `Datastore`). Toggling active/disabled status and adding rows MUST dynamically update the YAML string and update the Structured Grid UI in real-time.
 
 ---
 ---

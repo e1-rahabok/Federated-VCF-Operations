@@ -62,7 +62,7 @@ graph TD
 | :--- | :--- | :--- |
 | **Ingestion System Health Banner** | Top Status Banner | Real-time status banner displaying ingestion engine health, total connected instances, and last 1-minute polling timestamp. |
 | **Instance Management Table** | Top Panel | Interactive table displaying registered VCF Operations instances, status badges (`Healthy`, `Unreachable`, `Auth Error`), and edit/delete triggers. |
-| **Telemetry Collection Rules Editor** | Middle Panel | Interactive editor for `metrics_list.yaml` and `alerts_list.yaml`. Supports object kind tabs (`VirtualMachine`, `HostSystem`, `ClusterComputeResource`, `Datastore`), active metric toggles, adding/removing keys, and raw YAML editing with immediate dynamic reload without application restart. |
+| **Telemetry Collection Rules Editor** | Middle Panel | Interactive editor for `metrics_list.yaml` and `alerts_list.yaml`. Uses dynamic YAML parsing (`parseYamlConfig`) to render structured metric keys and alert filters per object kind tab (`VirtualMachine`, `HostSystem`, `ClusterComputeResource`, `Datastore`). Supports active toggles, key additions, and raw YAML editing with dynamic reload without application restart. |
 | **Dual Auth Modal** | Modal Dialog | Supports **Option A** (Local `OpsToken` credentials) and **Option B** (VCF SSO `Bearer Token` via Identity Broker). Includes a "Test Connection" button that validates endpoints prior to saving. |
 | **Retention Policy Form** | Bottom Panel | Configures raw metric buffer purge thresholds (hours) and long-term rollup retention windows (days). |
 

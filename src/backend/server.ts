@@ -1221,6 +1221,162 @@ const server = http.createServer((req, res) => {
         activeKind: 'VirtualMachine'
       };
 
+      function parseYamlConfigClient(text) {
+        const result = {
+          object_types: {
+            VirtualMachine: { metrics: [], alert_filters: [] },
+            HostSystem: { metrics: [], alert_filters: [] },
+            ClusterComputeResource: { metrics: [], alert_filters: [] },
+            Datastore: { metrics: [], alert_filters: [] }
+          }
+        };
+        if (!text) return result;
+        let currentKind = null;
+        let currentMetric = null;
+        let currentAlert = null;
+        const lines = text.split('\\n');
+        for (let i = 0; i < lines.length; i++) {
+          const rawLine = lines[i];
+          const trimmed = rawLine.trim();
+          if (!trimmed) continue;
+          const kindMatch = rawLine.match(/^\s*(VirtualMachine|HostSystem|ClusterComputeResource|Datastore):/);
+          if (kindMatch) {
+            currentKind = kindMatch[1];
+            if (!result.object_types[currentKind]) {
+              result.object_types[currentKind] = { metrics: [], alert_filters: [] };
+            }
+            currentMetric = null;
+            currentAlert = null;
+            continue;
+          }
+          if (!currentKind) continue;
+          const isCommented = trimmed.startsWith('#');
+          const cleanLine = trimmed.replace(/^#\s*/, '');
+          if (cleanLine.startsWith('- key:')) {
+            const colonIdx = cleanLine.indexOf(':');
+            const keyVal = cleanLine.substring(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
+            currentMetric = { key: keyVal, name: keyVal, unit: 'count', description: '', active: !isCommented };
+            result.object_types[currentKind].metrics.push(currentMetric);
+            currentAlert = null;
+            continue;
+          }
+          if (cleanLine.startsWith('- alert_sub_type:')) {
+            const colonIdx = cleanLine.indexOf(':');
+            const subVal = cleanLine.substring(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
+            currentAlert = { alert_sub_type: subVal, name: subVal, min_severity: 'WARNING', description: '', active: !isCommented };
+            result.object_types[currentKind].alert_filters.push(currentAlert);
+            currentMetric = null;
+            continue;
+          }
+          if (currentMetric) {
+            const colonIdx = cleanLine.indexOf(':');
+            if (colonIdx !== -1) {
+              const prop = cleanLine.substring(0, colonIdx).trim();
+              const val = cleanLine.substring(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
+              if (prop === 'name') currentMetric.name = val;
+              else if (prop === 'unit') currentMetric.unit = val;
+              else if (prop === 'description') currentMetric.description = val;
+            }
+          }
+          if (currentAlert) {
+            const colonIdx = cleanLine.indexOf(':');
+            if (colonIdx !== -1) {
+              const prop = cleanLine.substring(0, colonIdx).trim();
+              const val = cleanLine.substring(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
+              if (prop === 'name') currentAlert.name = val;
+              else if (prop === 'min_severity') currentAlert.min_severity = val;
+              else if (prop === 'description') currentAlert.description = val;
+            }
+          }
+        }
+        return result;
+      }
+
+      function toggleConfigItem(type, itemKey) {
+        const isMetrics = type === 'metrics';
+        const yaml = isMetrics ? telemetryConfigState.metricsYaml : telemetryConfigState.alertsYaml;
+        const kind = telemetryConfigState.activeKind;
+        const lines = yaml.split('\\n');
+        let inKind = false;
+        let inTargetItem = false;
+        let newLines = [];
+        for (let i = 0; i < lines.length; i++) {
+          const rawLine = lines[i];
+          const trimmed = rawLine.trim();
+          const kindMatch = rawLine.match(/^\s*(VirtualMachine|HostSystem|ClusterComputeResource|Datastore):/);
+          if (kindMatch) {
+            inKind = (kindMatch[1] === kind);
+            inTargetItem = false;
+            newLines.push(rawLine);
+            continue;
+          }
+          if (!inKind) {
+            newLines.push(rawLine);
+            continue;
+          }
+          const cleanLine = trimmed.replace(/^#\s*/, '');
+          if (cleanLine.startsWith('- key:') || cleanLine.startsWith('- alert_sub_type:')) {
+            const colonIdx = cleanLine.indexOf(':');
+            const val = cleanLine.substring(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
+            inTargetItem = (val === itemKey);
+          }
+          if (inTargetItem) {
+            const isCommented = trimmed.startsWith('#');
+            if (isCommented) {
+              newLines.push(rawLine.replace(/^(\s*)#\s?/, '$1'));
+            } else {
+              const indentMatch = rawLine.match(/^(\s*)/);
+              const indent = indentMatch ? indentMatch[1] : '';
+              newLines.push(indent + '# ' + rawLine.trimStart());
+            }
+          } else {
+            newLines.push(rawLine);
+          }
+        }
+        const updatedYaml = newLines.join('\\n');
+        if (isMetrics) telemetryConfigState.metricsYaml = updatedYaml;
+        else telemetryConfigState.alertsYaml = updatedYaml;
+        renderTelemetryConfigEditor();
+      }
+
+      function appendBlockToKind(yaml, kind, block) {
+        const lines = yaml.split('\\n');
+        let inserted = false;
+        let newLines = [];
+        for (let i = 0; i < lines.length; i++) {
+          newLines.push(lines[i]);
+          if (!inserted && lines[i].match(new RegExp('^\\s*' + kind + ':'))) {
+            newLines.push(block);
+            inserted = true;
+          }
+        }
+        if (!inserted) newLines.push('\\n  ' + kind + ':\\n' + block);
+        return newLines.join('\\n');
+      }
+
+      function addConfigItemPrompt(type) {
+        const kind = telemetryConfigState.activeKind;
+        const isMetrics = type === 'metrics';
+        if (isMetrics) {
+          const key = prompt('Enter new Metric Stat Key (e.g. cpu|swapwait_average):');
+          if (!key) return;
+          const name = prompt('Enter Display Name:', key);
+          const unit = prompt('Enter Unit (e.g. percent, ms, count, KBps):', 'count');
+          const desc = prompt('Enter Description (optional):', '');
+          const newBlock = '\\n      - key: "' + key + '"\\n        name: "' + (name || key) + '"\\n        unit: "' + (unit || 'count') + '"\\n        description: "' + (desc || '') + '"';
+          telemetryConfigState.metricsYaml = appendBlockToKind(telemetryConfigState.metricsYaml, kind, newBlock);
+        } else {
+          const subType = prompt('Enter Alert Sub-Type (e.g. HARDWARE, CAPACITY, NETWORK):');
+          if (!subType) return;
+          const name = prompt('Enter Alert Name Filter:', subType + ' High Severity Event');
+          const minSev = prompt('Enter Min Severity (WARNING, CRITICAL, IMMEDIATE):', 'WARNING');
+          const desc = prompt('Enter Description (optional):', '');
+          const newBlock = '\\n      - alert_sub_type: "' + subType + '"\\n        name: "' + (name || subType) + '"\\n        min_severity: "' + (minSev || 'WARNING') + '"\\n        description: "' + (desc || '') + '"';
+          telemetryConfigState.alertsYaml = appendBlockToKind(telemetryConfigState.alertsYaml, kind, newBlock);
+        }
+        renderTelemetryConfigEditor();
+      }
+
       async function initTelemetryConfig() {
         try {
           const resM = await fetch('/api/v1/system/config/metrics');
@@ -1272,7 +1428,7 @@ const server = http.createServer((req, res) => {
           const fileName = isMetrics ? 'metrics_list.yaml' : 'alerts_list.yaml';
           body.innerHTML = '<div style="display:flex; flex-direction:column; gap:8px;">' +
             '<div style="font-size:12px; color:#94a3b8;">📝 Direct YAML Editor (<code>Configuration/' + fileName + '</code>):</div>' +
-            '<textarea id="raw-yaml-input" rows="14" style="width:100%; font-family:monospace; font-size:13px; background:#0f172a; color:#f8fafc; border:1px solid #334155; padding:12px; border-radius:6px; line-height:1.4;">' + (activeYaml || '') + '</textarea>' +
+            '<textarea id="raw-yaml-input" rows="14" style="width:100%; font-family:monospace; font-size:13px; background:#0f172a; color:#f8fafc; border:1px solid #334155; padding:12px; border-radius:6px; line-height:1.4;" onchange="if(telemetryConfigState.type===&quot;metrics&quot;) telemetryConfigState.metricsYaml=this.value; else telemetryConfigState.alertsYaml=this.value;">' + (activeYaml || '') + '</textarea>' +
             '</div>';
           return;
         }
@@ -1285,28 +1441,47 @@ const server = http.createServer((req, res) => {
         });
         kindTabsHtml += '</div>';
 
+        const parsedConfig = parseYamlConfigClient(activeYaml);
+        const kindData = (parsedConfig.object_types && parsedConfig.object_types[telemetryConfigState.activeKind]) || { metrics: [], alert_filters: [] };
+
         if (isMetrics) {
+          let rowsHtml = '';
+          const metrics = kindData.metrics || [];
+          if (metrics.length === 0) {
+            rowsHtml = '<tr><td colspan="5" style="color:#94a3b8; text-align:center;">No metric keys defined for ' + telemetryConfigState.activeKind + '</td></tr>';
+          } else {
+            metrics.forEach(function(m) {
+              const statusBadge = m.active ? '<span class="badge badge-healthy">ACTIVE</span>' : '<span class="badge badge-warning">DISABLED</span>';
+              const actionBtn = '<button class="btn-secondary" style="font-size:11px; padding:2px 6px;" onclick="toggleConfigItem(&quot;metrics&quot;, &quot;' + m.key + '&quot;)">' + (m.active ? 'Disable' : 'Enable') + '</button>';
+              rowsHtml += '<tr><td><code>' + m.key + '</code></td><td>' + (m.name || m.key) + '</td><td>' + (m.unit || 'count') + '</td><td>' + statusBadge + '</td><td>' + actionBtn + '</td></tr>';
+            });
+          }
+
           body.innerHTML = kindTabsHtml +
             '<table>' +
             '<thead><tr><th>Stat Key</th><th>Display Name</th><th>Unit</th><th>Status</th><th>Action</th></tr></thead>' +
-            '<tbody>' +
-            '<tr><td><code>cpu|usage_average</code></td><td>CPU Usage (%)</td><td>percent</td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
-            '<tr><td><code>cpu|ready_summation</code></td><td>CPU Ready Time (ms)</td><td>milliseconds</td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
-            '<tr><td><code>mem|usage_average</code></td><td>Memory Usage (%)</td><td>percent</td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
-            '<tr><td><code>virtualDisk|totalLatency_average</code></td><td>Virtual Disk Total Latency (ms)</td><td>milliseconds</td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
-            '</tbody></table>' +
-            '<div style="margin-top:12px;"><button class="btn-secondary" style="font-size:12px;" onclick="alert(&quot;Added new metric key row to &quot; + telemetryConfigState.activeKind)">+ Add Metric Key to ' + telemetryConfigState.activeKind + '</button></div>';
+            '<tbody>' + rowsHtml + '</tbody></table>' +
+            '<div style="margin-top:12px;"><button class="btn-secondary" style="font-size:12px;" onclick="addConfigItemPrompt(&quot;metrics&quot;)">+ Add Metric Key to ' + telemetryConfigState.activeKind + '</button></div>';
         } else {
+          let rowsHtml = '';
+          const alerts = kindData.alert_filters || [];
+          if (alerts.length === 0) {
+            rowsHtml = '<tr><td colspan="5" style="color:#94a3b8; text-align:center;">No alert filters defined for ' + telemetryConfigState.activeKind + '</td></tr>';
+          } else {
+            alerts.forEach(function(a) {
+              const sevBadgeClass = (a.min_severity === 'CRITICAL' || a.min_severity === 'IMMEDIATE') ? 'badge-critical' : 'badge-warning';
+              const sevBadge = '<span class="badge ' + sevBadgeClass + '">' + (a.min_severity || 'WARNING') + '</span>';
+              const statusBadge = a.active ? '<span class="badge badge-healthy">ACTIVE</span>' : '<span class="badge badge-warning">DISABLED</span>';
+              const actionBtn = '<button class="btn-secondary" style="font-size:11px; padding:2px 6px;" onclick="toggleConfigItem(&quot;alerts&quot;, &quot;' + a.alert_sub_type + '&quot;)">' + (a.active ? 'Disable' : 'Enable') + '</button>';
+              rowsHtml += '<tr><td><code>' + a.alert_sub_type + '</code></td><td>' + (a.name || a.alert_sub_type) + '</td><td>' + sevBadge + '</td><td>' + statusBadge + '</td><td>' + actionBtn + '</td></tr>';
+            });
+          }
+
           body.innerHTML = kindTabsHtml +
             '<table>' +
             '<thead><tr><th>Alert Sub-Type</th><th>Alert Name Filter</th><th>Min Severity</th><th>Status</th><th>Action</th></tr></thead>' +
-            '<tbody>' +
-            '<tr><td><code>CPU</code></td><td>VM High CPU Utilization Alert</td><td><span class="badge badge-warning">WARNING</span></td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
-            '<tr><td><code>MEMORY</code></td><td>VM High Memory Swapping Alert</td><td><span class="badge badge-warning">WARNING</span></td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
-            '<tr><td><code>STORAGE</code></td><td>VM Virtual Disk Latency Alert</td><td><span class="badge badge-critical">IMMEDIATE</span></td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
-            '<tr><td><code>AVAILABILITY</code></td><td>VM Guest OS Down / Unresponsive Alert</td><td><span class="badge badge-critical">CRITICAL</span></td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
-            '</tbody></table>' +
-            '<div style="margin-top:12px;"><button class="btn-secondary" style="font-size:12px;" onclick="alert(&quot;Added new alert filter row to &quot; + telemetryConfigState.activeKind)">+ Add Alert Filter to ' + telemetryConfigState.activeKind + '</button></div>';
+            '<tbody>' + rowsHtml + '</tbody></table>' +
+            '<div style="margin-top:12px;"><button class="btn-secondary" style="font-size:12px;" onclick="addConfigItemPrompt(&quot;alerts&quot;)">+ Add Alert Filter to ' + telemetryConfigState.activeKind + '</button></div>';
         }
       }
 

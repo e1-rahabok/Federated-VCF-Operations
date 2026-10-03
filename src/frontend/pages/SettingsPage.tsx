@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { parseYamlConfig } from '../../backend/api/systemConfig.js';
 
 export const SettingsPage: React.FC = () => {
   const [showAddModal, setShowModal] = useState(false);
@@ -68,6 +69,100 @@ export const SettingsPage: React.FC = () => {
       setConfigSaveStatus('Error saving configuration: ' + err);
     }
   };
+
+  const handleToggleItem = (itemKey: string) => {
+    const isMetrics = configType === 'metrics';
+    const yaml = isMetrics ? metricsYaml : alertsYaml;
+    const lines = yaml.split(/\r?\n/);
+    let inKind = false;
+    let inTargetItem = false;
+    let newLines: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const rawLine = lines[i];
+      const trimmed = rawLine.trim();
+      const kindMatch = rawLine.match(/^\s*(VirtualMachine|HostSystem|ClusterComputeResource|Datastore):/);
+      if (kindMatch) {
+        inKind = (kindMatch[1] === activeKind);
+        inTargetItem = false;
+        newLines.push(rawLine);
+        continue;
+      }
+      if (!inKind) {
+        newLines.push(rawLine);
+        continue;
+      }
+      const cleanLine = trimmed.replace(/^#\s*/, '');
+      if (cleanLine.startsWith('- key:') || cleanLine.startsWith('- alert_sub_type:')) {
+        const colonIdx = cleanLine.indexOf(':');
+        const val = cleanLine.substring(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
+        inTargetItem = (val === itemKey);
+      }
+      if (inTargetItem) {
+        const isCommented = trimmed.startsWith('#');
+        if (isCommented) {
+          newLines.push(rawLine.replace(/^(\s*)#\s?/, '$1'));
+        } else {
+          const indentMatch = rawLine.match(/^(\s*)/);
+          const indent = indentMatch ? indentMatch[1] : '';
+          newLines.push(indent + '# ' + rawLine.trimStart());
+        }
+      } else {
+        newLines.push(rawLine);
+      }
+    }
+
+    const updated = newLines.join('\n');
+    if (isMetrics) setMetricsYaml(updated);
+    else setAlertsYaml(updated);
+  };
+
+  const handleAddItemPrompt = () => {
+    const isMetrics = configType === 'metrics';
+    if (isMetrics) {
+      const key = prompt('Enter new Metric Stat Key (e.g. cpu|swapwait_average):');
+      if (!key) return;
+      const name = prompt('Enter Display Name:', key);
+      const unit = prompt('Enter Unit (e.g. percent, ms, count, KBps):', 'count');
+      const desc = prompt('Enter Description (optional):', '');
+      const newBlock = `\n      - key: "${key}"\n        name: "${name || key}"\n        unit: "${unit || 'count'}"\n        description: "${desc || ''}"`;
+      const lines = metricsYaml.split(/\r?\n/);
+      let inserted = false;
+      let newLines: string[] = [];
+      for (let i = 0; i < lines.length; i++) {
+        newLines.push(lines[i]);
+        if (!inserted && lines[i].match(new RegExp('^\\s*' + activeKind + ':'))) {
+          newLines.push(newBlock);
+          inserted = true;
+        }
+      }
+      if (!inserted) newLines.push(`\n  ${activeKind}:\n${newBlock}`);
+      setMetricsYaml(newLines.join('\n'));
+    } else {
+      const subType = prompt('Enter Alert Sub-Type (e.g. HARDWARE, CAPACITY, NETWORK):');
+      if (!subType) return;
+      const name = prompt('Enter Alert Name Filter:', `${subType} High Severity Event`);
+      const minSev = prompt('Enter Min Severity (WARNING, CRITICAL, IMMEDIATE):', 'WARNING');
+      const desc = prompt('Enter Description (optional):', '');
+      const newBlock = `\n      - alert_sub_type: "${subType}"\n        name: "${name || subType}"\n        min_severity: "${minSev || 'WARNING'}"\n        description: "${desc || ''}"`;
+      const lines = alertsYaml.split(/\r?\n/);
+      let inserted = false;
+      let newLines: string[] = [];
+      for (let i = 0; i < lines.length; i++) {
+        newLines.push(lines[i]);
+        if (!inserted && lines[i].match(new RegExp('^\\s*' + activeKind + ':'))) {
+          newLines.push(newBlock);
+          inserted = true;
+        }
+      }
+      if (!inserted) newLines.push(`\n  ${activeKind}:\n${newBlock}`);
+      setAlertsYaml(newLines.join('\n'));
+    }
+  };
+
+  const activeYaml = configType === 'metrics' ? metricsYaml : alertsYaml;
+  const parsedConfig = parseYamlConfig(activeYaml);
+  const kindData = parsedConfig.object_types?.[activeKind] || { metrics: [], alert_filters: [] };
 
   return (
     <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -236,13 +331,30 @@ export const SettingsPage: React.FC = () => {
                       <tr><th>Stat Key</th><th>Display Name</th><th>Unit</th><th>Status</th><th>Action</th></tr>
                     </thead>
                     <tbody>
-                      <tr><td><code>cpu|usage_average</code></td><td>CPU Usage (%)</td><td>percent</td><td><span className="badge badge-healthy">ACTIVE</span></td><td><button className="btn-secondary" style={{ fontSize: '11px', padding: '2px 6px' }}>Toggle</button></td></tr>
-                      <tr><td><code>cpu|ready_summation</code></td><td>CPU Ready Time (ms)</td><td>milliseconds</td><td><span className="badge badge-healthy">ACTIVE</span></td><td><button className="btn-secondary" style={{ fontSize: '11px', padding: '2px 6px' }}>Toggle</button></td></tr>
-                      <tr><td><code>mem|usage_average</code></td><td>Memory Usage (%)</td><td>percent</td><td><span className="badge badge-healthy">ACTIVE</span></td><td><button className="btn-secondary" style={{ fontSize: '11px', padding: '2px 6px' }}>Toggle</button></td></tr>
-                      <tr><td><code>virtualDisk|totalLatency_average</code></td><td>Virtual Disk Total Latency (ms)</td><td>milliseconds</td><td><span className="badge badge-healthy">ACTIVE</span></td><td><button className="btn-secondary" style={{ fontSize: '11px', padding: '2px 6px' }}>Toggle</button></td></tr>
+                      {kindData.metrics.length === 0 ? (
+                        <tr><td colSpan={5} style={{ color: '#94a3b8', textAlign: 'center' }}>No metric keys defined for {activeKind}</td></tr>
+                      ) : (
+                        kindData.metrics.map(m => (
+                          <tr key={m.key}>
+                            <td><code>{m.key}</code></td>
+                            <td>{m.name || m.key}</td>
+                            <td>{m.unit || 'count'}</td>
+                            <td>
+                              <span className={`badge ${m.active ? 'badge-healthy' : 'badge-warning'}`}>
+                                {m.active ? 'ACTIVE' : 'DISABLED'}
+                              </span>
+                            </td>
+                            <td>
+                              <button className="btn-secondary" style={{ fontSize: '11px', padding: '2px 6px' }} onClick={() => handleToggleItem(m.key)}>
+                                {m.active ? 'Disable' : 'Enable'}
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
-                  <button className="btn-secondary" style={{ fontSize: '12px', marginTop: '12px' }} onClick={() => alert('Added metric key row to ' + activeKind)}>
+                  <button className="btn-secondary" style={{ fontSize: '12px', marginTop: '12px' }} onClick={handleAddItemPrompt}>
                     + Add Metric Key to {activeKind}
                   </button>
                 </div>
@@ -253,13 +365,34 @@ export const SettingsPage: React.FC = () => {
                       <tr><th>Alert Sub-Type</th><th>Alert Name Filter</th><th>Min Severity</th><th>Status</th><th>Action</th></tr>
                     </thead>
                     <tbody>
-                      <tr><td><code>CPU</code></td><td>VM High CPU Utilization Alert</td><td><span className="badge badge-warning">WARNING</span></td><td><span className="badge badge-healthy">ACTIVE</span></td><td><button className="btn-secondary" style={{ fontSize: '11px', padding: '2px 6px' }}>Toggle</button></td></tr>
-                      <tr><td><code>MEMORY</code></td><td>VM High Memory Swapping Alert</td><td><span className="badge badge-warning">WARNING</span></td><td><span className="badge badge-healthy">ACTIVE</span></td><td><button className="btn-secondary" style={{ fontSize: '11px', padding: '2px 6px' }}>Toggle</button></td></tr>
-                      <tr><td><code>STORAGE</code></td><td>VM Virtual Disk Latency Alert</td><td><span className="badge badge-critical">IMMEDIATE</span></td><td><span className="badge badge-healthy">ACTIVE</span></td><td><button className="btn-secondary" style={{ fontSize: '11px', padding: '2px 6px' }}>Toggle</button></td></tr>
-                      <tr><td><code>AVAILABILITY</code></td><td>VM Guest OS Down / Unresponsive Alert</td><td><span className="badge badge-critical">CRITICAL</span></td><td><span className="badge badge-healthy">ACTIVE</span></td><td><button className="btn-secondary" style={{ fontSize: '11px', padding: '2px 6px' }}>Toggle</button></td></tr>
+                      {kindData.alert_filters.length === 0 ? (
+                        <tr><td colSpan={5} style={{ color: '#94a3b8', textAlign: 'center' }}>No alert filters defined for {activeKind}</td></tr>
+                      ) : (
+                        kindData.alert_filters.map(a => (
+                          <tr key={a.alert_sub_type}>
+                            <td><code>{a.alert_sub_type}</code></td>
+                            <td>{a.name || a.alert_sub_type}</td>
+                            <td>
+                              <span className={`badge ${(a.min_severity === 'CRITICAL' || a.min_severity === 'IMMEDIATE') ? 'badge-critical' : 'badge-warning'}`}>
+                                {a.min_severity || 'WARNING'}
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`badge ${a.active ? 'badge-healthy' : 'badge-warning'}`}>
+                                {a.active ? 'ACTIVE' : 'DISABLED'}
+                              </span>
+                            </td>
+                            <td>
+                              <button className="btn-secondary" style={{ fontSize: '11px', padding: '2px 6px' }} onClick={() => handleToggleItem(a.alert_sub_type)}>
+                                {a.active ? 'Disable' : 'Enable'}
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
-                  <button className="btn-secondary" style={{ fontSize: '12px', marginTop: '12px' }} onClick={() => alert('Added alert filter row to ' + activeKind)}>
+                  <button className="btn-secondary" style={{ fontSize: '12px', marginTop: '12px' }} onClick={handleAddItemPrompt}>
                     + Add Alert Filter to {activeKind}
                   </button>
                 </div>

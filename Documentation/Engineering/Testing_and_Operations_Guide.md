@@ -35,6 +35,7 @@ The application enforces the **Testing Pyramid**:
 * **Mandatory Test Scenarios**:
   * **Full Web Route Coverage**: Validates that all single-page application routes (`/`, `/alerts`, `/alerts/:id`, `/metrics`, `/objects/:uuid`, `/settings`) return `HTTP 200 OK` with complete HTML layout structure and valid client controller script tags.
   * **Client JS AST Compilation (Test 17)**: Extracts embedded browser `<script>` code from HTML responses and compiles it using `node:vm` `Script` to verify 100% syntax validity and prevent blank screen regressions.
+  * **Dynamic Telemetry Grid & Kind Tab Test (Test 18)**: Verifies `/api/v1/system/config/metrics` and `/alerts` return parsed JSON object graphs for all 4 object types (`VirtualMachine`, `HostSystem`, `ClusterComputeResource`, `Datastore`) and validates client script rendering functions for kind tab switching and row toggling.
   * **API Gateway Endpoints**: Validates `/healthz`, `/readyz`, `/api/v1/alerts`, `/api/v1/metrics/query`, `/api/v1/system/config/metrics`, and `/api/v1/system/config/alerts`.
   * **Deduplication Watermarks**: Verifies duplicate metric payload insertions are silently dropped (`INSERT OR IGNORE`).
   * **RBAC Controls**: Verifies middleware rejects unauthorized modifications.

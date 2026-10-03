@@ -110,11 +110,13 @@ The ingestion engine uses external configuration files located in the `Configura
 | **JSON** | **Moderate** (Strict quotes, brackets) | **Moderate** (`"key": "value"`, commas) | **None** (JSON standard lacks comments) | **REJECTED** |
 
 ### How the Application Uses Configuration Files
-1. At startup and upon saving updates in the UI Settings Editor, the ingestion engine loads both YAML files.
-2. Administrators can view, edit, toggle, add, or remove metric keys and alert rules directly from the **System & VCF Configuration Page (`/settings`)** UI or via REST API endpoints (`PUT /api/v1/system/config/metrics` and `PUT /api/v1/system/config/alerts`).
-3. Upon saving changes in the UI, the system writes updated files to disk and dynamically reloads ingestion rules in-memory without restarting the application or backend server.
-4. When querying metrics via `/suite-api/api/resources/stats/query`, the engine filters statKeys against `Configuration/metrics_list.yaml` for the given resource kind (e.g. `VirtualMachine`).
-5. When retrieving alerts via `/suite-api/api/alerts`, the engine filters alerts against `Configuration/alerts_list.yaml`.
+1. At startup and upon saving updates in the UI Settings Editor, the ingestion engine loads both YAML files into memory.
+2. The REST API endpoints (`GET/PUT /api/v1/system/config/metrics` and `GET/PUT /api/v1/system/config/alerts`) return both raw YAML content and a dynamically parsed object graph (`config`).
+3. The frontend application uses a lightweight zero-dependency YAML parser (`parseYamlConfig`) to render dynamic tables for all 4 object types (`VirtualMachine`, `HostSystem`, `ClusterComputeResource`, `Datastore`).
+4. Administrators can view, edit, toggle, add, or remove metric keys and alert rules directly from the **System & VCF Configuration Page (`/settings`)** UI in either **Structured Grid** or **Raw YAML** mode.
+5. Upon saving changes in the UI, the system writes updated files to disk and dynamically reloads ingestion rules in-memory without restarting the application or backend server.
+6. When querying metrics via `/suite-api/api/resources/stats/query`, the engine filters statKeys against `Configuration/metrics_list.yaml` for the given resource kind (e.g. `VirtualMachine`).
+7. When retrieving alerts via `/suite-api/api/alerts`, the engine filters alerts against `Configuration/alerts_list.yaml`.
 
 ---
 
