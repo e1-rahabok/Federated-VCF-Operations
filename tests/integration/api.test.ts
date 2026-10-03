@@ -115,7 +115,80 @@ test('Test 18: Dynamic Telemetry Configuration API & YAML Grid Rendering Verific
   // Verify client AST compilation for settings page HTML script
   const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
   assert.ok(scriptMatch, 'Settings HTML response must contain a script block');
+  const jsCode = scriptMatch[1];
   assert.doesNotThrow(() => {
-    new vm.Script(scriptMatch[1]);
+    new vm.Script(jsCode);
   }, 'Settings page client script must compile with zero AST syntax errors');
+
+  // Functional End-to-End DOM Mock Execution: Verify all 4 object tabs render rows dynamically
+  const elements: Record<string, any> = {};
+  function makeEl(id: string) {
+    if (!elements[id]) {
+      elements[id] = {
+        id,
+        innerHTML: '',
+        innerText: '',
+        style: {},
+        className: '',
+        value: '',
+        classList: { add: () => {}, remove: () => {} }
+      };
+    }
+    return elements[id];
+  }
+
+  const domContext = {
+    console: console,
+    fetch: (url: string, opts?: any) => {
+      const fullUrl = url.startsWith('http') ? url : `http://localhost:3000${url}`;
+      return fetch(fullUrl, opts);
+    },
+    document: {
+      getElementById: (id: string) => makeEl(id),
+      querySelectorAll: () => [],
+      addEventListener: () => {}
+    },
+    location: { pathname: '/settings' },
+    window: {} as any,
+    prompt: () => 'test',
+    alert: () => {},
+    setTimeout: (fn: any) => fn(),
+    setInterval: () => {}
+  };
+  domContext.window = domContext;
+  domContext.window.location = domContext.location;
+
+  const script = new vm.Script(jsCode);
+  const context = vm.createContext(domContext);
+  script.runInContext(context);
+
+  // Initialize telemetry config from API
+  await (context as any).initTelemetryConfig();
+
+  const kinds = ['VirtualMachine', 'HostSystem', 'ClusterComputeResource', 'Datastore'];
+
+  // Verify Metrics Grid Rendering for all 4 object kinds
+  for (const k of kinds) {
+    (context as any).setConfigActiveKind(k);
+    const bodyHtml = makeEl('config-editor-body').innerHTML;
+    const rowMatches = bodyHtml.match(/<tr>/g) || [];
+    const dataRowCount = rowMatches.length - 1; // subtract <thead> row
+    assert.ok(dataRowCount > 0, `Expected metrics rows for kind '${k}' to be > 0, but got ${dataRowCount}`);
+  }
+
+  // Verify metric toggle functionality on HostSystem
+  (context as any).setConfigActiveKind('HostSystem');
+  (context as any).toggleConfigItem('metrics', 'cpu|usage_average');
+  const bodyAfterToggle = makeEl('config-editor-body').innerHTML;
+  assert.ok(bodyAfterToggle.includes('DISABLED'), 'Expected HostSystem cpu|usage_average to display DISABLED badge after toggle');
+
+  // Verify Alert Rules Grid Rendering for all 4 object kinds
+  (context as any).switchConfigTab('alerts');
+  for (const k of kinds) {
+    (context as any).setConfigActiveKind(k);
+    const alertBodyHtml = makeEl('config-editor-body').innerHTML;
+    const rowMatches = alertBodyHtml.match(/<tr>/g) || [];
+    const dataRowCount = rowMatches.length - 1;
+    assert.ok(dataRowCount > 0, `Expected alert filter rows for kind '${k}' to be > 0, but got ${dataRowCount}`);
+  }
 });

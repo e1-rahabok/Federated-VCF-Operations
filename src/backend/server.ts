@@ -1218,11 +1218,13 @@ const server = http.createServer((req, res) => {
         mode: 'grid',    // 'grid' or 'yaml'
         metricsYaml: '',
         alertsYaml: '',
+        metricsConfig: null,
+        alertsConfig: null,
         activeKind: 'VirtualMachine'
       };
 
       function parseYamlConfigClient(text) {
-        const result = {
+        var result = {
           object_types: {
             VirtualMachine: { metrics: [], alert_filters: [] },
             HostSystem: { metrics: [], alert_filters: [] },
@@ -1231,17 +1233,27 @@ const server = http.createServer((req, res) => {
           }
         };
         if (!text) return result;
-        let currentKind = null;
-        let currentMetric = null;
-        let currentAlert = null;
-        const lines = text.split('\\n');
-        for (let i = 0; i < lines.length; i++) {
-          const rawLine = lines[i];
-          const trimmed = rawLine.trim();
+        var currentKind = null;
+        var currentMetric = null;
+        var currentAlert = null;
+        var lines = text.split('\\n');
+        var kinds = ['VirtualMachine', 'HostSystem', 'ClusterComputeResource', 'Datastore'];
+
+        for (var i = 0; i < lines.length; i++) {
+          var rawLine = lines[i];
+          var trimmed = rawLine.trim();
           if (!trimmed) continue;
-          const kindMatch = rawLine.match(/^\s*(VirtualMachine|HostSystem|ClusterComputeResource|Datastore):/);
-          if (kindMatch) {
-            currentKind = kindMatch[1];
+
+          var matchedKind = null;
+          for (var k = 0; k < kinds.length; k++) {
+            if (trimmed === kinds[k] + ':' || trimmed.indexOf(kinds[k] + ':') === 0) {
+              matchedKind = kinds[k];
+              break;
+            }
+          }
+
+          if (matchedKind) {
+            currentKind = matchedKind;
             if (!result.object_types[currentKind]) {
               result.object_types[currentKind] = { metrics: [], alert_filters: [] };
             }
@@ -1249,40 +1261,49 @@ const server = http.createServer((req, res) => {
             currentAlert = null;
             continue;
           }
+
           if (!currentKind) continue;
-          const isCommented = trimmed.startsWith('#');
-          const cleanLine = trimmed.replace(/^#\s*/, '');
-          if (cleanLine.startsWith('- key:')) {
-            const colonIdx = cleanLine.indexOf(':');
-            const keyVal = cleanLine.substring(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
+
+          var isCommented = trimmed.indexOf('#') === 0;
+          var cleanLine = trimmed;
+          while (cleanLine.indexOf('#') === 0) {
+            cleanLine = cleanLine.substring(1).trim();
+          }
+
+          if (cleanLine.indexOf('- key:') === 0) {
+            var colonIdx = cleanLine.indexOf(':');
+            var keyVal = cleanLine.substring(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
             currentMetric = { key: keyVal, name: keyVal, unit: 'count', description: '', active: !isCommented };
             result.object_types[currentKind].metrics.push(currentMetric);
             currentAlert = null;
             continue;
           }
-          if (cleanLine.startsWith('- alert_sub_type:')) {
-            const colonIdx = cleanLine.indexOf(':');
-            const subVal = cleanLine.substring(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
+
+          if (cleanLine.indexOf('- alert_sub_type:') === 0) {
+            var colonIdx = cleanLine.indexOf(':');
+            var subVal = cleanLine.substring(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
             currentAlert = { alert_sub_type: subVal, name: subVal, min_severity: 'WARNING', description: '', active: !isCommented };
             result.object_types[currentKind].alert_filters.push(currentAlert);
             currentMetric = null;
             continue;
           }
+
           if (currentMetric) {
-            const colonIdx = cleanLine.indexOf(':');
-            if (colonIdx !== -1) {
-              const prop = cleanLine.substring(0, colonIdx).trim();
-              const val = cleanLine.substring(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
+            var colon = cleanLine.indexOf(':');
+            if (colon !== -1) {
+              var prop = cleanLine.substring(0, colon).trim();
+              var val = cleanLine.substring(colon + 1).trim().replace(/^["']|["']$/g, '');
               if (prop === 'name') currentMetric.name = val;
               else if (prop === 'unit') currentMetric.unit = val;
               else if (prop === 'description') currentMetric.description = val;
             }
           }
+
           if (currentAlert) {
-            const colonIdx = cleanLine.indexOf(':');
-            if (colonIdx !== -1) {
-              const prop = cleanLine.substring(0, colonIdx).trim();
-              const val = cleanLine.substring(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
+            var colon = cleanLine.indexOf(':');
+            if (colon !== -1) {
+              var prop = cleanLine.substring(0, colon).trim();
+              var val = cleanLine.substring(colon + 1).trim().replace(/^["']|["']$/g, '');
               if (prop === 'name') currentAlert.name = val;
               else if (prop === 'min_severity') currentAlert.min_severity = val;
               else if (prop === 'description') currentAlert.description = val;
@@ -1293,59 +1314,83 @@ const server = http.createServer((req, res) => {
       }
 
       function toggleConfigItem(type, itemKey) {
-        const isMetrics = type === 'metrics';
-        const yaml = isMetrics ? telemetryConfigState.metricsYaml : telemetryConfigState.alertsYaml;
-        const kind = telemetryConfigState.activeKind;
-        const lines = yaml.split('\\n');
-        let inKind = false;
-        let inTargetItem = false;
-        let newLines = [];
-        for (let i = 0; i < lines.length; i++) {
-          const rawLine = lines[i];
-          const trimmed = rawLine.trim();
-          const kindMatch = rawLine.match(/^\s*(VirtualMachine|HostSystem|ClusterComputeResource|Datastore):/);
-          if (kindMatch) {
-            inKind = (kindMatch[1] === kind);
+        var isMetrics = type === 'metrics';
+        var yaml = isMetrics ? telemetryConfigState.metricsYaml : telemetryConfigState.alertsYaml;
+        var kind = telemetryConfigState.activeKind;
+        var lines = yaml.split('\\n');
+        var inKind = false;
+        var inTargetItem = false;
+        var newLines = [];
+        var kinds = ['VirtualMachine', 'HostSystem', 'ClusterComputeResource', 'Datastore'];
+
+        for (var i = 0; i < lines.length; i++) {
+          var rawLine = lines[i];
+          var trimmed = rawLine.trim();
+
+          var matchedKind = null;
+          for (var k = 0; k < kinds.length; k++) {
+            if (trimmed === kinds[k] + ':' || trimmed.indexOf(kinds[k] + ':') === 0) {
+              matchedKind = kinds[k];
+              break;
+            }
+          }
+
+          if (matchedKind) {
+            inKind = (matchedKind === kind);
             inTargetItem = false;
             newLines.push(rawLine);
             continue;
           }
+
           if (!inKind) {
             newLines.push(rawLine);
             continue;
           }
-          const cleanLine = trimmed.replace(/^#\s*/, '');
-          if (cleanLine.startsWith('- key:') || cleanLine.startsWith('- alert_sub_type:')) {
-            const colonIdx = cleanLine.indexOf(':');
-            const val = cleanLine.substring(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
+
+          var cleanLine = trimmed;
+          while (cleanLine.indexOf('#') === 0) {
+            cleanLine = cleanLine.substring(1).trim();
+          }
+
+          if (cleanLine.indexOf('- key:') === 0 || cleanLine.indexOf('- alert_sub_type:') === 0) {
+            var colonIdx = cleanLine.indexOf(':');
+            var val = cleanLine.substring(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
             inTargetItem = (val === itemKey);
           }
+
           if (inTargetItem) {
-            const isCommented = trimmed.startsWith('#');
+            var isCommented = trimmed.indexOf('#') === 0;
             if (isCommented) {
               newLines.push(rawLine.replace(/^(\s*)#\s?/, '$1'));
             } else {
-              const indentMatch = rawLine.match(/^(\s*)/);
-              const indent = indentMatch ? indentMatch[1] : '';
+              var indentMatch = rawLine.match(/^(\s*)/);
+              var indent = indentMatch ? indentMatch[1] : '';
               newLines.push(indent + '# ' + rawLine.trimStart());
             }
           } else {
             newLines.push(rawLine);
           }
         }
-        const updatedYaml = newLines.join('\\n');
-        if (isMetrics) telemetryConfigState.metricsYaml = updatedYaml;
-        else telemetryConfigState.alertsYaml = updatedYaml;
+
+        var updatedYaml = newLines.join('\\n');
+        if (isMetrics) {
+          telemetryConfigState.metricsYaml = updatedYaml;
+          telemetryConfigState.metricsConfig = parseYamlConfigClient(updatedYaml);
+        } else {
+          telemetryConfigState.alertsYaml = updatedYaml;
+          telemetryConfigState.alertsConfig = parseYamlConfigClient(updatedYaml);
+        }
         renderTelemetryConfigEditor();
       }
 
       function appendBlockToKind(yaml, kind, block) {
-        const lines = yaml.split('\\n');
-        let inserted = false;
-        let newLines = [];
-        for (let i = 0; i < lines.length; i++) {
+        var lines = yaml.split('\\n');
+        var inserted = false;
+        var newLines = [];
+        for (var i = 0; i < lines.length; i++) {
           newLines.push(lines[i]);
-          if (!inserted && lines[i].match(new RegExp('^\\s*' + kind + ':'))) {
+          var trimmed = lines[i].trim();
+          if (!inserted && (trimmed === kind + ':' || trimmed.indexOf(kind + ':') === 0)) {
             newLines.push(block);
             inserted = true;
           }
@@ -1355,24 +1400,26 @@ const server = http.createServer((req, res) => {
       }
 
       function addConfigItemPrompt(type) {
-        const kind = telemetryConfigState.activeKind;
-        const isMetrics = type === 'metrics';
+        var kind = telemetryConfigState.activeKind;
+        var isMetrics = type === 'metrics';
         if (isMetrics) {
-          const key = prompt('Enter new Metric Stat Key (e.g. cpu|swapwait_average):');
+          var key = prompt('Enter new Metric Stat Key (e.g. cpu|swapwait_average):');
           if (!key) return;
-          const name = prompt('Enter Display Name:', key);
-          const unit = prompt('Enter Unit (e.g. percent, ms, count, KBps):', 'count');
-          const desc = prompt('Enter Description (optional):', '');
-          const newBlock = '\\n      - key: "' + key + '"\\n        name: "' + (name || key) + '"\\n        unit: "' + (unit || 'count') + '"\\n        description: "' + (desc || '') + '"';
+          var name = prompt('Enter Display Name:', key);
+          var unit = prompt('Enter Unit (e.g. percent, ms, count, KBps):', 'count');
+          var desc = prompt('Enter Description (optional):', '');
+          var newBlock = '\\n      - key: "' + key + '"\\n        name: "' + (name || key) + '"\\n        unit: "' + (unit || 'count') + '"\\n        description: "' + (desc || '') + '"';
           telemetryConfigState.metricsYaml = appendBlockToKind(telemetryConfigState.metricsYaml, kind, newBlock);
+          telemetryConfigState.metricsConfig = parseYamlConfigClient(telemetryConfigState.metricsYaml);
         } else {
-          const subType = prompt('Enter Alert Sub-Type (e.g. HARDWARE, CAPACITY, NETWORK):');
+          var subType = prompt('Enter Alert Sub-Type (e.g. HARDWARE, CAPACITY, NETWORK):');
           if (!subType) return;
-          const name = prompt('Enter Alert Name Filter:', subType + ' High Severity Event');
-          const minSev = prompt('Enter Min Severity (WARNING, CRITICAL, IMMEDIATE):', 'WARNING');
-          const desc = prompt('Enter Description (optional):', '');
-          const newBlock = '\\n      - alert_sub_type: "' + subType + '"\\n        name: "' + (name || subType) + '"\\n        min_severity: "' + (minSev || 'WARNING') + '"\\n        description: "' + (desc || '') + '"';
+          var name = prompt('Enter Alert Name Filter:', subType + ' High Severity Event');
+          var minSev = prompt('Enter Min Severity (WARNING, CRITICAL, IMMEDIATE):', 'WARNING');
+          var desc = prompt('Enter Description (optional):', '');
+          var newBlock = '\\n      - alert_sub_type: "' + subType + '"\\n        name: "' + (name || subType) + '"\\n        min_severity: "' + (minSev || 'WARNING') + '"\\n        description: "' + (desc || '') + '"';
           telemetryConfigState.alertsYaml = appendBlockToKind(telemetryConfigState.alertsYaml, kind, newBlock);
+          telemetryConfigState.alertsConfig = parseYamlConfigClient(telemetryConfigState.alertsYaml);
         }
         renderTelemetryConfigEditor();
       }
@@ -1381,11 +1428,17 @@ const server = http.createServer((req, res) => {
         try {
           const resM = await fetch('/api/v1/system/config/metrics');
           const dataM = await resM.json();
-          if (dataM.success) telemetryConfigState.metricsYaml = dataM.yaml;
+          if (dataM.success) {
+            telemetryConfigState.metricsYaml = dataM.yaml;
+            if (dataM.config) telemetryConfigState.metricsConfig = dataM.config;
+          }
 
           const resA = await fetch('/api/v1/system/config/alerts');
           const dataA = await resA.json();
-          if (dataA.success) telemetryConfigState.alertsYaml = dataA.yaml;
+          if (dataA.success) {
+            telemetryConfigState.alertsYaml = dataA.yaml;
+            if (dataA.config) telemetryConfigState.alertsConfig = dataA.config;
+          }
 
           renderTelemetryConfigEditor();
         } catch (e) {
@@ -1404,6 +1457,18 @@ const server = http.createServer((req, res) => {
 
       function switchConfigMode(mode) {
         telemetryConfigState.mode = mode;
+        if (mode === 'grid') {
+          var area = document.getElementById('raw-yaml-input');
+          if (area) {
+            if (telemetryConfigState.type === 'metrics') {
+              telemetryConfigState.metricsYaml = area.value;
+              telemetryConfigState.metricsConfig = parseYamlConfigClient(area.value);
+            } else {
+              telemetryConfigState.alertsYaml = area.value;
+              telemetryConfigState.alertsConfig = parseYamlConfigClient(area.value);
+            }
+          }
+        }
         const modeG = document.getElementById('config-mode-grid');
         const modeY = document.getElementById('config-mode-yaml');
         if (modeG) modeG.className = mode === 'grid' ? 'btn-primary' : 'btn-secondary';
@@ -1428,7 +1493,7 @@ const server = http.createServer((req, res) => {
           const fileName = isMetrics ? 'metrics_list.yaml' : 'alerts_list.yaml';
           body.innerHTML = '<div style="display:flex; flex-direction:column; gap:8px;">' +
             '<div style="font-size:12px; color:#94a3b8;">📝 Direct YAML Editor (<code>Configuration/' + fileName + '</code>):</div>' +
-            '<textarea id="raw-yaml-input" rows="14" style="width:100%; font-family:monospace; font-size:13px; background:#0f172a; color:#f8fafc; border:1px solid #334155; padding:12px; border-radius:6px; line-height:1.4;" onchange="if(telemetryConfigState.type===&quot;metrics&quot;) telemetryConfigState.metricsYaml=this.value; else telemetryConfigState.alertsYaml=this.value;">' + (activeYaml || '') + '</textarea>' +
+            '<textarea id="raw-yaml-input" rows="14" style="width:100%; font-family:monospace; font-size:13px; background:#0f172a; color:#f8fafc; border:1px solid #334155; padding:12px; border-radius:6px; line-height:1.4;" onchange="if(telemetryConfigState.type===&quot;metrics&quot;) { telemetryConfigState.metricsYaml=this.value; telemetryConfigState.metricsConfig=parseYamlConfigClient(this.value); } else { telemetryConfigState.alertsYaml=this.value; telemetryConfigState.alertsConfig=parseYamlConfigClient(this.value); }">' + (activeYaml || '') + '</textarea>' +
             '</div>';
           return;
         }
@@ -1441,14 +1506,16 @@ const server = http.createServer((req, res) => {
         });
         kindTabsHtml += '</div>';
 
-        const parsedConfig = parseYamlConfigClient(activeYaml);
+        const parsedConfig = isMetrics
+          ? (telemetryConfigState.metricsConfig || parseYamlConfigClient(activeYaml))
+          : (telemetryConfigState.alertsConfig || parseYamlConfigClient(activeYaml));
         const kindData = (parsedConfig.object_types && parsedConfig.object_types[telemetryConfigState.activeKind]) || { metrics: [], alert_filters: [] };
 
         if (isMetrics) {
           let rowsHtml = '';
           const metrics = kindData.metrics || [];
           if (metrics.length === 0) {
-            rowsHtml = '<tr><td colspan="5" style="color:#94a3b8; text-align:center;">No metric keys defined for ' + telemetryConfigState.activeKind + '</td></tr>';
+            rowsHtml = '<tr><td colspan="5" style="color:#94a3b8; text-align:center; padding:16px;">No metric keys defined for ' + telemetryConfigState.activeKind + '</td></tr>';
           } else {
             metrics.forEach(function(m) {
               const statusBadge = m.active ? '<span class="badge badge-healthy">ACTIVE</span>' : '<span class="badge badge-warning">DISABLED</span>';
@@ -1466,7 +1533,7 @@ const server = http.createServer((req, res) => {
           let rowsHtml = '';
           const alerts = kindData.alert_filters || [];
           if (alerts.length === 0) {
-            rowsHtml = '<tr><td colspan="5" style="color:#94a3b8; text-align:center;">No alert filters defined for ' + telemetryConfigState.activeKind + '</td></tr>';
+            rowsHtml = '<tr><td colspan="5" style="color:#94a3b8; text-align:center; padding:16px;">No alert filters defined for ' + telemetryConfigState.activeKind + '</td></tr>';
           } else {
             alerts.forEach(function(a) {
               const sevBadgeClass = (a.min_severity === 'CRITICAL' || a.min_severity === 'IMMEDIATE') ? 'badge-critical' : 'badge-warning';
