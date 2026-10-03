@@ -35,16 +35,21 @@ It polls metrics, objects, and alerts every 1 minute from multiple VCF Operation
 ├── Configuration/               # Human-friendly YAML collection configs
 │   ├── metrics_list.yaml        # Metrics collected per object type
 │   └── alerts_list.yaml         # Alert filters monitored per object type
-├── Documentation/               # Technical Specifications & Engineering Guides
-│   ├── Requirements.md          # Functional features & Mermaid user flow diagrams
-│   ├── Solution.md              # Technical solution architecture & Mermaid ERDs
-│   ├── Pages_Specification.md   # Complete web pages inventory, wireframes & UI functions
-│   ├── Backend_Developer_Guide.md # Resilience patterns, Clean Architecture & performance
-│   ├── Frontend_Developer_Guide.md # Design system tokens, 4-state machine & virtualization
-│   ├── OpenAPI_Spec.yaml        # Formal OpenAPI 3.0 REST API specification
-│   ├── Testing_and_Operations_Guide.md # QA test pyramid, runbooks & self-monitoring
-│   ├── Architecture.md          # Component relationships & data flow summary
-│   └── Configuration_Guide.md   # Guide for configuring metric/alert rules
+├── Documentation/               # Technical Specifications, User Guides & Engineering Specifications
+│   ├── Architecture.md          # Unified Technical Architecture & System Design
+│   ├── Requirements.md          # Functional & technical requirements (with Mermaid user flows)
+│   ├── Pages_Specification.md   # Web pages inventory, wireframes & UI state machine
+│   ├── Guides/                  # User & Administrator Guides
+│   │   ├── Installation_Guide.md
+│   │   ├── Configuration_Guide.md
+│   │   ├── User_Guide.md
+│   │   ├── Troubleshooting_Guide.md
+│   │   └── Limitations_and_Roadmap.md
+│   └── Engineering/             # Software Developer Specifications & OpenAPI Schema
+│       ├── Backend_Developer_Guide.md
+│       ├── Frontend_Developer_Guide.md
+│       ├── OpenAPI_Spec.yaml
+│       └── Testing_and_Operations_Guide.md
 ├── src/                         # Application Source Code Scaffolding
 │   ├── backend/                 # Node.js Ingestion Engine, DB & REST API
 │   │   ├── api/                 # REST routes
@@ -107,17 +112,25 @@ The web console will be accessible at `http://localhost:3000`.
 
 ---
 
-## 📖 Key Documentation & Engineering Specifications
+## 📖 Key Documentation & Specifications
 
-* [Functional & Technical Requirements](Documentation/Requirements.md)
-* [Technical Solution Architecture](Documentation/Solution.md)
-* [Pages & UI Wireframe Specification](Documentation/Pages_Specification.md)
-* [Backend Developer Guide & Architecture](Documentation/Backend_Developer_Guide.md)
-* [Frontend Developer & UI/UX Guide](Documentation/Frontend_Developer_Guide.md)
-* [OpenAPI 3.0 Specification (YAML)](Documentation/OpenAPI_Spec.yaml)
-* [QA Testing & Operations Runbook](Documentation/Testing_and_Operations_Guide.md)
-* [Architecture Guide](Documentation/Architecture.md)
-* [Configuration Guide](Documentation/Configuration_Guide.md)
+### Architecture & Requirements
+* 📐 [Unified Architecture & System Design](Documentation/Architecture.md)
+* 📋 [Requirements Specification](Documentation/Requirements.md)
+* 🖥️ [Pages & UI Wireframe Specification](Documentation/Pages_Specification.md)
+
+### User & Operational Guides
+* ⚡ [Installation Guide](Documentation/Guides/Installation_Guide.md)
+* ⚙️ [Configuration Guide](Documentation/Guides/Configuration_Guide.md)
+* 👤 [User Guide](Documentation/Guides/User_Guide.md)
+* 🔧 [Troubleshooting Guide](Documentation/Guides/Troubleshooting_Guide.md)
+* 🛑 [Limitations & Roadmap](Documentation/Guides/Limitations_and_Roadmap.md)
+
+### Developer & Engineering Specifications
+* 🛠️ [Backend Developer Guide](Documentation/Engineering/Backend_Developer_Guide.md)
+* 🎨 [Frontend Developer Guide](Documentation/Engineering/Frontend_Developer_Guide.md)
+* 📄 [OpenAPI 3.0 Specification (YAML)](Documentation/Engineering/OpenAPI_Spec.yaml)
+* 🧪 [Testing & Operations Guide](Documentation/Engineering/Testing_and_Operations_Guide.md)
 
 ---
 
