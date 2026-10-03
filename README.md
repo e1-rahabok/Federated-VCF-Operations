@@ -35,10 +35,18 @@ It polls metrics, objects, and alerts every 1 minute from multiple VCF Operation
 ├── Configuration/               # Human-friendly YAML collection configs
 │   ├── metrics_list.yaml        # Metrics collected per object type
 │   └── alerts_list.yaml         # Alert filters monitored per object type
-├── Documentation/               # Technical Specifications, User Guides & Engineering Specifications
+├── Documentation/               # Technical Specifications, User Guides & Web Page Specifications
 │   ├── Architecture.md          # Unified Technical Architecture & System Design
 │   ├── Requirements.md          # Functional & technical requirements (with Mermaid user flows)
-│   ├── Pages_Specification.md   # Web pages inventory, wireframes & UI state machine
+│   ├── Web_Pages/               # Individual Web Page Specifications & Sitemap Wireframes
+│   │   ├── README.md            # Page Inventory & Global Header Shell Specification
+│   │   ├── 01_Login_Page.md
+│   │   ├── 02_Home_Page.md
+│   │   ├── 03_Alerts_Analysis_Page.md
+│   │   ├── 04_Detail_Alert_Page.md
+│   │   ├── 05_Metrics_Analysis_Dashboard.md
+│   │   ├── 06_Detail_Object_Page.md
+│   │   └── 07_System_Configuration_Page.md
 │   ├── Guides/                  # User & Administrator Guides
 │   │   ├── Installation_Guide.md
 │   │   ├── Configuration_Guide.md
@@ -114,10 +122,17 @@ The web console will be accessible at `http://localhost:3000`.
 
 ## 📖 Key Documentation & Specifications
 
-### Architecture & Requirements
+### Architecture, Requirements & Web Pages
 * 📐 [Unified Architecture & System Design](Documentation/Architecture.md)
 * 📋 [Requirements Specification](Documentation/Requirements.md)
-* 🖥️ [Pages & UI Wireframe Specification](Documentation/Pages_Specification.md)
+* 🖥️ [Web Page Specifications & Wireframes Directory](Documentation/Web_Pages/README.md)
+  * [Page 1: User Login Page](Documentation/Web_Pages/01_Login_Page.md)
+  * [Page 2: Personalized Home Page](Documentation/Web_Pages/02_Home_Page.md)
+  * [Page 3: Alerts Analysis Page](Documentation/Web_Pages/03_Alerts_Analysis_Page.md)
+  * [Page 4: Detail Alert Page](Documentation/Web_Pages/04_Detail_Alert_Page.md)
+  * [Page 5: Metrics Analysis Dashboard](Documentation/Web_Pages/05_Metrics_Analysis_Dashboard.md)
+  * [Page 6: Detail Object Page](Documentation/Web_Pages/06_Detail_Object_Page.md)
+  * [Page 7: System & VCF Configuration Page](Documentation/Web_Pages/07_System_Configuration_Page.md)
 
 ### User & Operational Guides
 * ⚡ [Installation Guide](Documentation/Guides/Installation_Guide.md)
