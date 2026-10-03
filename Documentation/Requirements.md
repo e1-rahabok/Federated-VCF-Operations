@@ -11,8 +11,10 @@ This document defines the functional and technical requirements for the Federate
 ### 1.1 Multi-Instance VCF Operations 9 Connectivity
 * **REQ-FUN-001**: The system MUST connect to multiple VCF Operations 9 instances concurrently.
 * **REQ-FUN-002**: The system MUST support individual configuration settings for each VCF instance.
-* **REQ-FUN-003**: The system MUST acquire API session tokens (`OpsToken` or `Bearer` tokens) via `POST /api/auth/token/acquire`.
-* **REQ-FUN-004**: The system MUST monitor token expiration. It MUST automatically acquire a new token before expiration.
+* **REQ-FUN-003**: The system MUST support two authentication methods for connecting to VCF Operations 9.x instances:
+  * **Option A — Local Credentials (`OpsToken`)**: Uses username, password, and auth source (`LOCAL` / `LDAP`) via `POST /suite-api/api/auth/token/acquire`, returning `Authorization: OpsToken <token>`. (Default for local or VCF 9.0 instances).
+  * **Option B — VCF SSO / VIDB API Refresh Token (`Bearer Token`)**: Best practice for VCF 9.1+. Exchanges a durable API refresh token via VCF Identity Broker (`POST https://{vidb-fqdn}/acs/t/{client-name}/token`), returning `Authorization: Bearer <access_token>`.
+* **REQ-FUN-004**: The system MUST monitor token expiration for both authentication methods and automatically acquire a fresh token before expiration.
 * **REQ-FUN-005**: If a VCF instance is unreachable, the system MUST log the error. It MUST continue collecting data from all other reachable instances.
 
 ### 1.2 Automated Ingestion Engine & 1-Minute Polling Loop

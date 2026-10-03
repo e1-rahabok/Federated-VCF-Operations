@@ -123,7 +123,24 @@ The ingestion engine uses external configuration files located in the `Configura
 * **Transport Layer Security (TLS)**: All communication with VCF Operations instances uses HTTPS. TLS 1.2 and TLS 1.3 protocols are enforced.
 * **Certificate Handling**: The administrator can configure per-instance SSL verification options (`rejectUnauthorized: true/false`). This supports internal enterprise CA setups.
 
-## 3.2 Token Handling & Session Security
+## 3.2 VCF Operations Authentication Strategy (VCF 9.0 vs VCF 9.1.x)
+The system supports both supported authentication schemes across VCF Operations 9 versions:
+
+1. **Option A: Local Credentials (`OpsToken`) — VCF 9.0 & Local Fallback**
+   * Calls `POST /suite-api/api/auth/token/acquire` with JSON body containing `{ "username": "...", "password": "...", "authSource": "LOCAL" }`.
+   * VCF Operations returns a session token valid for 6 hours.
+   * Requests use the `Authorization: OpsToken <token>` header.
+
+2. **Option B: VCF SSO / VIDB API Refresh Token (`Bearer Token`) — VCF 9.1+ Best Practice**
+   * In VCF 9.1+, administrators create an API Client and generate an API Refresh Token in VCF Operations (`Fleet Management -> Identity & Access`).
+   * The backend ingestion engine exchanges the `api_token` via VCF Identity Broker (VIDB):
+     `POST https://{vidb-fqdn}/acs/t/{client-name}/token`
+     Body: `grant_type=urn:custom:vcf:params:oauth:grant-type:api-token&api_token={apiToken}`
+   * VIDB returns an OAuth access token.
+   * Requests use the standard `Authorization: Bearer <access_token>` header.
+   * **Why VIDB Bearer Token is Best Practice**: Avoids storing user passwords in plaintext or reversible encryption, uses fine-grained RBAC roles, and operates seamlessly across VCF SSO single sign-on domains.
+
+## 3.3 Token Handling & Session Security
 * **Token Caching**: VCF `OpsToken` and SSO `Bearer` tokens are cached in backend memory. Tokens are never exposed to the frontend browser client.
 * **Auto-Renewal**: The token manager inspects token expiration timestamps. It automatically acquires a fresh token 5 minutes before expiration.
 * **User Authentication**: Web UI access requires session tokens (JWT or secure HTTP-only cookies).

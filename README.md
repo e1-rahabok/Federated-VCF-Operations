@@ -38,6 +38,7 @@ It polls metrics, objects, and alerts every 1 minute from multiple VCF Operation
 ├── Documentation/               # Project & Technical Specifications
 │   ├── Requirements.md          # Functional features & Mermaid user flow diagrams
 │   ├── Solution.md              # Technical solution architecture & Mermaid ERDs
+│   ├── Pages_Specification.md   # Complete web pages inventory, wireframes & UI functions
 │   ├── Architecture.md          # Component relationships & data flow summary
 │   └── Configuration_Guide.md   # Guide for configuring metric/alert rules
 ├── src/                         # Application Source Code Scaffolding
@@ -106,6 +107,7 @@ The web console will be accessible at `http://localhost:3000`.
 
 * [Functional & Technical Requirements](Documentation/Requirements.md)
 * [Technical Solution Architecture](Documentation/Solution.md)
+* [Pages Specification Guide](Documentation/Pages_Specification.md)
 * [Architecture Guide](Documentation/Architecture.md)
 * [Configuration Guide](Documentation/Configuration_Guide.md)
 
