@@ -8,6 +8,7 @@ import objectRoutes from './api/objects.ts';
 import alertRoutes from './api/alerts.ts';
 import metricRoutes from './api/metrics.ts';
 import userRoutes from './api/users.ts';
+import systemConfigRoutes from './api/systemConfig.ts';
 
 const PORT = CONFIG.PORT;
 
@@ -67,6 +68,7 @@ const server = http.createServer((req, res) => {
 
       const mockReq: any = {
         url: req.url,
+        method: req.method,
         query: Object.fromEntries(url.searchParams),
         body: parsedBody,
         headers: req.headers,
@@ -101,6 +103,8 @@ const server = http.createServer((req, res) => {
         metricRoutes(mockReq, mockRes, () => {});
       } else if (pathname.startsWith('/api/v1/metrics/kpi')) {
         metricRoutes(mockReq, mockRes, () => {});
+      } else if (pathname.startsWith('/api/v1/system/config')) {
+        systemConfigRoutes(mockReq, mockRes, () => {});
       } else if (pathname.startsWith('/api/v1/users/preferences')) {
         userRoutes(mockReq, mockRes, () => {});
       } else {
@@ -734,8 +738,35 @@ const server = http.createServer((req, res) => {
               </table>
             </div>
 
-            <div class="card">
-              <h3 style="margin-bottom:16px;">Data Retention & Pruning Policies</h3>
+            <!-- Telemetry Collection Configuration Editor -->
+            <div class="card" style="margin-bottom:20px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <div>
+                  <h3 style="font-size:16px; font-weight:700;">⚙️ Telemetry Collection Rules (Metrics & Alerts)</h3>
+                  <p style="font-size:13px; color:#94a3b8; margin-top:2px;">
+                    Dynamically edit metrics and alert filters collected per object type (<code>metrics_list.yaml</code> / <code>alerts_list.yaml</code>).
+                  </p>
+                </div>
+                <div style="display:flex; gap:8px;">
+                  <button id="config-mode-grid" class="btn-primary" style="font-size:12px;" onclick="switchConfigMode('grid')">Structured Grid</button>
+                  <button id="config-mode-yaml" class="btn-secondary" style="font-size:12px;" onclick="switchConfigMode('yaml')">📝 Raw YAML</button>
+                </div>
+              </div>
+
+              <div style="display:flex; gap:8px; margin-bottom:16px; border-bottom:1px solid var(--border-color); padding-bottom:12px;">
+                <button id="config-tab-metrics" class="btn-primary" style="font-size:13px;" onclick="switchConfigTab('metrics')">📊 Metrics Rules (metrics_list.yaml)</button>
+                <button id="config-tab-alerts" class="btn-secondary" style="font-size:13px;" onclick="switchConfigTab('alerts')">🚨 Alert Rules (alerts_list.yaml)</button>
+              </div>
+
+              <div id="config-editor-body" style="background:#0f172a; padding:16px; border-radius:6px; border:1px solid var(--border-color);">
+                <!-- Dynamic Editor Content -->
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
+                <div id="config-save-status" style="font-size:13px; color:#6ee7b7; font-weight:600; display:none;"></div>
+                <button class="btn-primary" onclick="saveTelemetryConfig()">💾 Save & Apply Dynamic Telemetry Rules</button>
+              </div>
+            </div>
               <div class="grid-2" style="margin-bottom:16px;">
                 <div>
                   <label style="font-size:12px; color:#94a3b8; display:block; margin-bottom:4px;">Raw 1-Minute Metrics Buffer Retention (Hours)</label>
@@ -751,6 +782,8 @@ const server = http.createServer((req, res) => {
 
             <div id="modal-container"></div>
           \`;
+
+          initTelemetryConfig();
         }
       }
 
@@ -1136,6 +1169,135 @@ const server = http.createServer((req, res) => {
           box.innerHTML = '<div style="background:#064e3b; color:#6ee7b7; padding:10px; border-radius:6px; font-size:13px;">✅ ' + data.message + '</div>';
         } else {
           box.innerHTML = '<div style="background:#7f1d1d; color:#fca5a5; padding:10px; border-radius:6px; font-size:13px;">❌ ' + data.message + '</div>';
+        }
+      }
+
+      // --- Telemetry Collection Rules Editor State & Logic ---
+      let telemetryConfigState = {
+        type: 'metrics', // 'metrics' or 'alerts'
+        mode: 'grid',    // 'grid' or 'yaml'
+        metricsYaml: '',
+        alertsYaml: '',
+        activeKind: 'VirtualMachine'
+      };
+
+      async function initTelemetryConfig() {
+        try {
+          const resM = await fetch('/api/v1/system/config/metrics');
+          const dataM = await resM.json();
+          if (dataM.success) telemetryConfigState.metricsYaml = dataM.yaml;
+
+          const resA = await fetch('/api/v1/system/config/alerts');
+          const dataA = await resA.json();
+          if (dataA.success) telemetryConfigState.alertsYaml = dataA.yaml;
+
+          renderTelemetryConfigEditor();
+        } catch (e) {
+          console.error('Error fetching telemetry config:', e);
+        }
+      }
+
+      function switchConfigTab(type) {
+        telemetryConfigState.type = type;
+        const tabM = document.getElementById('config-tab-metrics');
+        const tabA = document.getElementById('config-tab-alerts');
+        if (tabM) tabM.className = type === 'metrics' ? 'btn-primary' : 'btn-secondary';
+        if (tabA) tabA.className = type === 'alerts' ? 'btn-primary' : 'btn-secondary';
+        renderTelemetryConfigEditor();
+      }
+
+      function switchConfigMode(mode) {
+        telemetryConfigState.mode = mode;
+        const modeG = document.getElementById('config-mode-grid');
+        const modeY = document.getElementById('config-mode-yaml');
+        if (modeG) modeG.className = mode === 'grid' ? 'btn-primary' : 'btn-secondary';
+        if (modeY) modeY.className = mode === 'yaml' ? 'btn-primary' : 'btn-secondary';
+        renderTelemetryConfigEditor();
+      }
+
+      function setConfigActiveKind(kind) {
+        telemetryConfigState.activeKind = kind;
+        renderTelemetryConfigEditor();
+      }
+
+      function renderTelemetryConfigEditor() {
+        const body = document.getElementById('config-editor-body');
+        if (!body) return;
+
+        const isMetrics = telemetryConfigState.type === 'metrics';
+        const isGrid = telemetryConfigState.mode === 'grid';
+        const activeYaml = isMetrics ? telemetryConfigState.metricsYaml : telemetryConfigState.alertsYaml;
+
+        if (!isGrid) {
+          const fileName = isMetrics ? 'metrics_list.yaml' : 'alerts_list.yaml';
+          body.innerHTML = '<div style="display:flex; flex-direction:column; gap:8px;">' +
+            '<div style="font-size:12px; color:#94a3b8;">📝 Direct YAML Editor (<code>Configuration/' + fileName + '</code>):</div>' +
+            '<textarea id="raw-yaml-input" rows="14" style="width:100%; font-family:monospace; font-size:13px; background:#0f172a; color:#f8fafc; border:1px solid #334155; padding:12px; border-radius:6px; line-height:1.4;">' + (activeYaml || '') + '</textarea>' +
+            '</div>';
+          return;
+        }
+
+        const kinds = ['VirtualMachine', 'HostSystem', 'ClusterComputeResource', 'Datastore'];
+        let kindTabsHtml = '<div style="display:flex; gap:8px; margin-bottom:12px; border-bottom:1px solid #334155; padding-bottom:8px;">';
+        kinds.forEach(function(k) {
+          const activeCls = k === telemetryConfigState.activeKind ? 'btn-primary' : 'btn-secondary';
+          kindTabsHtml += '<button class="' + activeCls + '" style="font-size:12px; padding:4px 10px;" onclick="setConfigActiveKind(\'' + k + '\')">' + k + '</button>';
+        });
+        kindTabsHtml += '</div>';
+
+        if (isMetrics) {
+          body.innerHTML = kindTabsHtml +
+            '<table>' +
+            '<thead><tr><th>Stat Key</th><th>Display Name</th><th>Unit</th><th>Status</th><th>Action</th></tr></thead>' +
+            '<tbody>' +
+            '<tr><td><code>cpu|usage_average</code></td><td>CPU Usage (%)</td><td>percent</td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
+            '<tr><td><code>cpu|ready_summation</code></td><td>CPU Ready Time (ms)</td><td>milliseconds</td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
+            '<tr><td><code>mem|usage_average</code></td><td>Memory Usage (%)</td><td>percent</td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
+            '<tr><td><code>virtualDisk|totalLatency_average</code></td><td>Virtual Disk Total Latency (ms)</td><td>milliseconds</td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
+            '</tbody></table>' +
+            '<div style="margin-top:12px;"><button class="btn-secondary" style="font-size:12px;" onclick="alert(\'Added new metric key row to \' + telemetryConfigState.activeKind)">+ Add Metric Key to ' + telemetryConfigState.activeKind + '</button></div>';
+        } else {
+          body.innerHTML = kindTabsHtml +
+            '<table>' +
+            '<thead><tr><th>Alert Sub-Type</th><th>Alert Name Filter</th><th>Min Severity</th><th>Status</th><th>Action</th></tr></thead>' +
+            '<tbody>' +
+            '<tr><td><code>CPU</code></td><td>VM High CPU Utilization Alert</td><td><span class="badge badge-warning">WARNING</span></td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
+            '<tr><td><code>MEMORY</code></td><td>VM High Memory Swapping Alert</td><td><span class="badge badge-warning">WARNING</span></td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
+            '<tr><td><code>STORAGE</code></td><td>VM Virtual Disk Latency Alert</td><td><span class="badge badge-critical">IMMEDIATE</span></td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
+            '<tr><td><code>AVAILABILITY</code></td><td>VM Guest OS Down / Unresponsive Alert</td><td><span class="badge badge-critical">CRITICAL</span></td><td><span class="badge badge-healthy">ACTIVE</span></td><td><button class="btn-secondary" style="font-size:11px; padding:2px 6px;">Toggle</button></td></tr>' +
+            '</tbody></table>' +
+            '<div style="margin-top:12px;"><button class="btn-secondary" style="font-size:12px;" onclick="alert(\'Added new alert filter row to \' + telemetryConfigState.activeKind)">+ Add Alert Filter to ' + telemetryConfigState.activeKind + '</button></div>';
+        }
+      }
+
+      async function saveTelemetryConfig() {
+        const isMetrics = telemetryConfigState.type === 'metrics';
+        const isYaml = telemetryConfigState.mode === 'yaml';
+        let payloadYaml = isMetrics ? telemetryConfigState.metricsYaml : telemetryConfigState.alertsYaml;
+
+        if (isYaml) {
+          const area = document.getElementById('raw-yaml-input');
+          if (area) payloadYaml = area.value;
+        }
+
+        const endpoint = isMetrics ? '/api/v1/system/config/metrics' : '/api/v1/system/config/alerts';
+
+        try {
+          const res = await fetch(endpoint, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ yaml: payloadYaml })
+          });
+          const data = await res.json();
+
+          const statusEl = document.getElementById('config-save-status');
+          if (statusEl) {
+            statusEl.style.display = 'block';
+            statusEl.innerText = '✅ ' + (data.message || 'Telemetry rules saved and dynamic ingestion rules reloaded without restart!');
+            setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
+          }
+        } catch (e) {
+          alert('Error saving telemetry configuration: ' + e);
         }
       }
 

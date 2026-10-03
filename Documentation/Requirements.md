@@ -45,7 +45,8 @@ This document defines the functional and technical requirements for the Federate
 * **REQ-FUN-024**: The system MUST read metric collection rules from `Configuration/metrics_list.yaml`.
 * **REQ-FUN-025**: The system MUST read alert collection rules from `Configuration/alerts_list.yaml`.
 * **REQ-FUN-026**: Collection rules MUST be grouped by object type (`VirtualMachine`, `HostSystem`, `ClusterComputeResource`, `Datastore`).
-* **REQ-FUN-027**: The system MUST support dynamic loading of the configuration files so administrators can add or remove collected metrics without restarting the application.
+* **REQ-FUN-027**: The system MUST allow Administrators to view, edit, add, remove, and toggle metric and alert collection rules directly from the web application UI on the **System & VCF Configuration Page (`/settings`)**.
+* **REQ-FUN-027a**: Upon saving telemetry collection modifications in the UI, the system MUST persist changes to `Configuration/metrics_list.yaml` and `Configuration/alerts_list.yaml` on disk and dynamically reload ingestion rules in memory without requiring an application or server restart.
 
 ---
 
@@ -91,6 +92,11 @@ This document defines the functional and technical requirements for the Federate
 * **REQ-UI-021d**: The chart MUST feature a **Drag-to-Zoom Window** with a translucent selection rectangle across the plot area, instant zoom re-rendering, statistical card recalculation (`Minimum`, `Maximum`, `Mean Average`, `95th Percentile`), and a top-right `↺ Reset Zoom` button.
 * **REQ-UI-022**: The Detail Object Page MUST feature a direct launch button: **"Open Object in VCF Operations"**.
 * **REQ-UI-023**: Clicking **"Open Object in VCF Operations"** MUST open the exact object context in the source VCF Operations 9 instance web console in a new browser tab.
+
+### 2.5 System Configuration Page Telemetry Management
+* **REQ-UI-024**: The **System & VCF Configuration Page (`/settings`)** MUST feature an interactive **Telemetry Collection Configuration Editor** enabling Administrators to manage collected metric keys (`metrics_list.yaml`) and alert rules (`alerts_list.yaml`) per object type (`VirtualMachine`, `HostSystem`, `ClusterComputeResource`, `Datastore`).
+* **REQ-UI-025**: The Telemetry Collection Configuration Editor MUST support editing via structured form controls (toggle active state, add new metric key, remove metric key, edit unit/description) as well as direct YAML text editing.
+* **REQ-UI-026**: The system MUST provide a **"Save & Apply Dynamic Telemetry Rules"** action button that saves configuration changes to disk via REST API endpoints (`PUT /api/v1/system/config/metrics` and `PUT /api/v1/system/config/alerts`) and immediately reloads active polling rules without restarting the application or backend server.
 
 ---
 

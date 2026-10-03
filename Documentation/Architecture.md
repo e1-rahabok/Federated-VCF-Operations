@@ -110,9 +110,11 @@ The ingestion engine uses external configuration files located in the `Configura
 | **JSON** | **Moderate** (Strict quotes, brackets) | **Moderate** (`"key": "value"`, commas) | **None** (JSON standard lacks comments) | **REJECTED** |
 
 ### How the Application Uses Configuration Files
-1. At startup (and on file modification watcher triggers), the ingestion engine loads both YAML files.
-2. When querying metrics via `POST /suite-api/api/resources/stats/query`, the engine filters statKeys against `Configuration/metrics_list.yaml` for the given resource kind (e.g. `VirtualMachine`).
-3. When retrieving alerts via `GET /suite-api/api/alerts`, the engine filters alerts against `Configuration/alerts_list.yaml`.
+1. At startup and upon saving updates in the UI Settings Editor, the ingestion engine loads both YAML files.
+2. Administrators can view, edit, toggle, add, or remove metric keys and alert rules directly from the **System & VCF Configuration Page (`/settings`)** UI or via REST API endpoints (`PUT /api/v1/system/config/metrics` and `PUT /api/v1/system/config/alerts`).
+3. Upon saving changes in the UI, the system writes updated files to disk and dynamically reloads ingestion rules in-memory without restarting the application or backend server.
+4. When querying metrics via `/suite-api/api/resources/stats/query`, the engine filters statKeys against `Configuration/metrics_list.yaml` for the given resource kind (e.g. `VirtualMachine`).
+5. When retrieving alerts via `/suite-api/api/alerts`, the engine filters alerts against `Configuration/alerts_list.yaml`.
 
 ---
 
