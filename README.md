@@ -29,40 +29,40 @@ flowchart LR
     classDef folder fill:none,stroke:none,color:#000000,text-align:left;
     classDef file fill:none,stroke:none,color:#000000,text-align:left;
 
-    Root["<div align='left'>📁 federated-vcf-ops</div>"]:::folder
+    Root["📁 federated-vcf-ops"]:::folder
 
     %% .github folder
-    Root --> GH["<div align='left'>📁 .github/</div>"]:::folder
-    GH --> GH1["<div align='left'>⚙️ workflows/ci.yml<br/><i>GitHub Actions CI pipeline</i></div>"]:::file
-    GH --> GH2["<div align='left'>📋 ISSUE_TEMPLATE/<br/><i>Bug report & feature templates</i></div>"]:::file
-    GH --> GH3["<div align='left'>📝 PULL_REQUEST_TEMPLATE.md<br/><i>Pull request guidelines</i></div>"]:::file
+    Root --> GH["📁 .github/"]:::folder
+    GH --> GH1["⚙️ workflows/ci.yml<br/><i>GitHub Actions CI pipeline</i>"]:::file
+    GH --> GH2["📋 ISSUE_TEMPLATE/<br/><i>Bug report & feature templates</i>"]:::file
+    GH --> GH3["📝 PULL_REQUEST_TEMPLATE.md<br/><i>Pull request guidelines</i>"]:::file
 
     %% Configuration folder
-    Root --> CONF["<div align='left'>📁 Configuration/</div>"]:::folder
-    CONF --> C1["<div align='left'>📄 metrics_list.yaml<br/><i>Metrics collected per object type</i></div>"]:::file
-    CONF --> C2["<div align='left'>📄 alerts_list.yaml<br/><i>Alert filters monitored per object type</i></div>"]:::file
+    Root --> CONF["📁 Configuration/"]:::folder
+    CONF --> C1["📄 metrics_list.yaml<br/><i>Metrics collected per object type</i>"]:::file
+    CONF --> C2["📄 alerts_list.yaml<br/><i>Alert filters monitored per object type</i>"]:::file
 
     %% Documentation folder
-    Root --> DOC["<div align='left'>📁 Documentation/</div>"]:::folder
-    DOC --> D1["<div align='left'>📄 Requirements.md<br/><i>Functional features & Mermaid user flows</i></div>"]:::file
-    DOC --> D2["<div align='left'>📄 Solution.md<br/><i>Technical solution architecture & Mermaid ERDs</i></div>"]:::file
-    DOC --> D3["<div align='left'>📄 Architecture.md<br/><i>Architecture overview & data flow</i></div>"]:::file
-    DOC --> D4["<div align='left'>📄 Configuration_Guide.md<br/><i>Guide for metric & alert configuration</i></div>"]:::file
+    Root --> DOC["📁 Documentation/"]:::folder
+    DOC --> D1["📄 Requirements.md<br/><i>Functional features & Mermaid user flows</i>"]:::file
+    DOC --> D2["📄 Solution.md<br/><i>Technical solution architecture & Mermaid ERDs</i>"]:::file
+    DOC --> D3["📄 Architecture.md<br/><i>Architecture overview & data flow</i>"]:::file
+    DOC --> D4["📄 Configuration_Guide.md<br/><i>Guide for metric & alert configuration</i>"]:::file
 
     %% src folder
-    Root --> SRC["<div align='left'>📁 src/</div>"]:::folder
-    SRC --> B["<div align='left'>📁 backend/<br/><i>Node.js Ingestion Engine, DB & REST API</i></div>"]:::folder
-    SRC --> F["<div align='left'>📁 frontend/<br/><i>React 18 Web UI Pages & Components</i></div>"]:::folder
+    Root --> SRC["📁 src/"]:::folder
+    SRC --> B["📁 backend/<br/><i>Node.js Ingestion Engine, DB & REST API</i>"]:::folder
+    SRC --> F["📁 frontend/<br/><i>React 18 Web UI Pages & Components</i>"]:::folder
 
     %% scripts folder
-    Root --> SCR["<div align='left'>📁 scripts/</div>"]:::folder
-    SCR --> S1["<div align='left'>📜 prune_data.ps1<br/><i>Database retention cleanup script</i></div>"]:::file
+    Root --> SCR["📁 scripts/"]:::folder
+    SCR --> S1["📜 prune_data.ps1<br/><i>Database retention cleanup script</i>"]:::file
 
     %% Root configuration files
-    Root --> ENV["<div align='left'>🔑 .env.example<br/><i>Environment variables template</i></div>"]:::file
-    Root --> DOCK["<div align='left'>🐳 Dockerfile & docker-compose.yml<br/><i>Production container specifications</i></div>"]:::file
-    Root --> PKG["<div align='left'>📦 package.json<br/><i>Node.js project configuration</i></div>"]:::file
-    Root --> READ["<div align='left'>📖 README.md & LICENSE<br/><i>Repository overview & MIT License</i></div>"]:::file
+    Root --> ENV["🔑 .env.example<br/><i>Environment variables template</i>"]:::file
+    Root --> DOCK["🐳 Dockerfile & docker-compose.yml<br/><i>Production container specifications</i>"]:::file
+    Root --> PKG["📦 package.json<br/><i>Node.js project configuration</i>"]:::file
+    Root --> READ["📖 README.md & LICENSE<br/><i>Repository overview & MIT License</i>"]:::file
 ```
 
 ---
