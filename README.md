@@ -26,43 +26,53 @@ It polls metrics, objects, and alerts every 1 minute from multiple VCF Operation
 
 ```mermaid
 flowchart LR
-    classDef folder fill:none,stroke:none,color:#000000,text-align:left;
-    classDef file fill:none,stroke:none,color:#000000,text-align:left;
+    direction LR
 
-    Root["📁 federated-vcf-ops"]:::folder
+    subgraph Root ["📁 federated-vcf-ops (Repository Root)"]
+        direction TB
+        env["🔑 .env.example — Environment variable template"]
+        dock["🐳 Dockerfile & docker-compose.yml — Production container specs"]
+        pkg["📦 package.json — Node.js project configuration"]
+        read["📖 README.md & LICENSE — Overview & MIT License"]
+    end
 
-    %% .github folder
-    Root --> GH["📁 .github/"]:::folder
-    GH --> GH1["⚙️ workflows/ci.yml<br/><i>GitHub Actions CI pipeline</i>"]:::file
-    GH --> GH2["📋 ISSUE_TEMPLATE/<br/><i>Bug report & feature templates</i>"]:::file
-    GH --> GH3["📝 PULL_REQUEST_TEMPLATE.md<br/><i>Pull request guidelines</i>"]:::file
+    subgraph GH ["📁 .github/"]
+        direction TB
+        ci["⚙️ workflows/ci.yml — GitHub Actions CI pipeline"]
+        it["📋 ISSUE_TEMPLATE/ — Bug report & feature templates"]
+        pr["📝 PULL_REQUEST_TEMPLATE.md — PR guidelines"]
+    end
 
-    %% Configuration folder
-    Root --> CONF["📁 Configuration/"]:::folder
-    CONF --> C1["📄 metrics_list.yaml<br/><i>Metrics collected per object type</i>"]:::file
-    CONF --> C2["📄 alerts_list.yaml<br/><i>Alert filters monitored per object type</i>"]:::file
+    subgraph CONF ["📁 Configuration/"]
+        direction TB
+        m["📄 metrics_list.yaml — Metrics collected per object type"]
+        a["📄 alerts_list.yaml — Alert filters monitored per object type"]
+    end
 
-    %% Documentation folder
-    Root --> DOC["📁 Documentation/"]:::folder
-    DOC --> D1["📄 Requirements.md<br/><i>Functional features & Mermaid user flows</i>"]:::file
-    DOC --> D2["📄 Solution.md<br/><i>Technical solution architecture & Mermaid ERDs</i>"]:::file
-    DOC --> D3["📄 Architecture.md<br/><i>Architecture overview & data flow</i>"]:::file
-    DOC --> D4["📄 Configuration_Guide.md<br/><i>Guide for metric & alert configuration</i>"]:::file
+    subgraph DOC ["📁 Documentation/"]
+        direction TB
+        req["📄 Requirements.md — Functional features & Mermaid user flows"]
+        sol["📄 Solution.md — Technical solution architecture & ERDs"]
+        arch["📄 Architecture.md — System architecture & data flow"]
+        cfg["📄 Configuration_Guide.md — Metric & alert configuration guide"]
+    end
 
-    %% src folder
-    Root --> SRC["📁 src/"]:::folder
-    SRC --> B["📁 backend/<br/><i>Node.js Ingestion Engine, DB & REST API</i>"]:::folder
-    SRC --> F["📁 frontend/<br/><i>React 18 Web UI Pages & Components</i>"]:::folder
+    subgraph SRC ["📁 src/"]
+        direction TB
+        back["📁 backend/ — Node.js Ingestion Engine, DB & REST API"]
+        front["📁 frontend/ — React 18 Web UI (Pages & Components)"]
+    end
 
-    %% scripts folder
-    Root --> SCR["📁 scripts/"]:::folder
-    SCR --> S1["📜 prune_data.ps1<br/><i>Database retention cleanup script</i>"]:::file
+    subgraph SCR ["📁 scripts/"]
+        direction TB
+        ps["📜 prune_data.ps1 — Database retention cleanup script"]
+    end
 
-    %% Root configuration files
-    Root --> ENV["🔑 .env.example<br/><i>Environment variables template</i>"]:::file
-    Root --> DOCK["🐳 Dockerfile & docker-compose.yml<br/><i>Production container specifications</i>"]:::file
-    Root --> PKG["📦 package.json<br/><i>Node.js project configuration</i>"]:::file
-    Root --> READ["📖 README.md & LICENSE<br/><i>Repository overview & MIT License</i>"]:::file
+    Root --> GH
+    Root --> CONF
+    Root --> DOC
+    Root --> SRC
+    Root --> SCR
 ```
 
 ---
