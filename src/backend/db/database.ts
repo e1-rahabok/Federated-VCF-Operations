@@ -27,7 +27,9 @@ export function getDatabase() {
   }
 
   initSchema(sqliteDb);
-  seedInitialData(sqliteDb);
+  if (CONFIG.SEED_DEMO_DATA) {
+    seedInitialData(sqliteDb);
+  }
   return sqliteDb;
 }
 
@@ -45,7 +47,10 @@ function initSchema(db: any) {
       refresh_token_encrypted TEXT,
       enabled INTEGER DEFAULT 1,
       status TEXT DEFAULT 'HEALTHY',
-      last_poll INTEGER
+      last_poll INTEGER,
+      auth_source TEXT DEFAULT 'LOCAL',
+      verify_tls INTEGER DEFAULT 1,
+      last_error TEXT
     );
 
     CREATE TABLE IF NOT EXISTS resources (
@@ -101,6 +106,44 @@ function initSchema(db: any) {
       PRIMARY KEY (instance_id, data_type)
     );
 
+    CREATE TABLE IF NOT EXISTS resource_properties (
+      instance_id TEXT NOT NULL,
+      resource_uuid TEXT NOT NULL,
+      property_key TEXT NOT NULL,
+      property_value TEXT,
+      updated_at INTEGER,
+      PRIMARY KEY (instance_id, resource_uuid, property_key)
+    );
+
+    -- Objects related to a tracked resource: its ancestors (vCenter, datacenter, cluster,
+    -- host) and, for consumers of storage, its datastores.
+    CREATE TABLE IF NOT EXISTS resource_relations (
+      instance_id TEXT NOT NULL,
+      resource_uuid TEXT NOT NULL,
+      relation TEXT NOT NULL,
+      related_uuid TEXT NOT NULL,
+      related_name TEXT,
+      related_kind TEXT,
+      PRIMARY KEY (instance_id, resource_uuid, relation, related_uuid)
+    );
+
+    -- Symptom conditions that triggered an alert (stat key, operator, threshold).
+    CREATE TABLE IF NOT EXISTS alert_conditions (
+      instance_id TEXT NOT NULL,
+      alert_id TEXT NOT NULL,
+      symptom_id TEXT NOT NULL,
+      stat_key TEXT NOT NULL,
+      operator TEXT,
+      threshold TEXT,
+      severity TEXT,
+      PRIMARY KEY (instance_id, alert_id, symptom_id, stat_key)
+    );
+
+    CREATE TABLE IF NOT EXISTS system_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS user_preferences (
       username TEXT PRIMARY KEY,
       layout_json TEXT NOT NULL
@@ -109,6 +152,21 @@ function initSchema(db: any) {
 
   if (typeof db.exec === 'function') {
     db.exec(schemaSql);
+    addMissingColumns(db, 'vcf_instances', {
+      auth_source: "TEXT DEFAULT 'LOCAL'",
+      verify_tls: 'INTEGER DEFAULT 1',
+      last_error: 'TEXT'
+    });
+  }
+}
+
+// Databases created before a column existed get it added in place.
+function addMissingColumns(db: any, table: string, columns: Record<string, string>) {
+  const existing = new Set((db.prepare(`PRAGMA table_info(${table})`).all() || []).map((c: any) => c.name));
+  for (const [name, definition] of Object.entries(columns)) {
+    if (!existing.has(name)) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`);
+    }
   }
 }
 
@@ -121,8 +179,8 @@ function seedInitialData(db: any) {
         INSERT INTO vcf_instances (id, name, hostname, auth_type, username, enabled, status, last_poll)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `);
-      insertInst.run('vcf-ops-01', 'VCF-Ops-01', 'vcf-ops-01.corp.local', 'OPS_TOKEN', 'admin', 1, 'HEALTHY', Date.now() - 10000);
-      insertInst.run('vcf-ops-02', 'VCF-Ops-02', 'vcf-ops-02.corp.local', 'BEARER_TOKEN', 'vidb-admin', 1, 'HEALTHY', Date.now() - 15000);
+      insertInst.run('vcf-ops-01', 'VCF-Ops-01', 'vcf-ops-01.corp.local', 'OPS_TOKEN', 'admin', 0, 'DEMO', Date.now() - 10000);
+      insertInst.run('vcf-ops-02', 'VCF-Ops-02', 'vcf-ops-02.corp.local', 'BEARER_TOKEN', 'vidb-admin', 0, 'DEMO', Date.now() - 15000);
     }
 
     const resCount = db.prepare('SELECT count(*) as count FROM resources').get();
@@ -147,10 +205,10 @@ function seedInitialData(db: any) {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       const now = Date.now();
-      insertAlert.run('alt-98234-vcf', 'VCF-Ops-01', 'vm-007', 'VM-007 (SQL-Prod)', 'High CPU Ready Latency on Virtual Machine VM-007', 'WARNING', 'ACTIVE', now - 18 * 60 * 1000, now - 2 * 60 * 1000);
-      insertAlert.run('alt-98235-vcf', 'VCF-Ops-02', 'esx-01', 'esx-01.corp.local', 'Physical Power Supply Unit Fault', 'CRITICAL', 'ACTIVE', now - 42 * 60 * 1000, now - 5 * 60 * 1000);
-      insertAlert.run('alt-98236-vcf', 'VCF-Ops-01', 'datastore-01', 'vsanDatastore', 'Datastore Capacity Usage Exceeds 85% Warning', 'WARNING', 'ACTIVE', now - 95 * 60 * 1000, now - 10 * 60 * 1000);
-      insertAlert.run('alt-98237-vcf', 'VCF-Ops-01', 'vm-008', 'VM-008 (Web-App)', 'Snapshot age exceeds 7 days', 'INFO', 'ACTIVE', now - 180 * 60 * 1000, now - 60 * 60 * 1000);
+      insertAlert.run('alt-98234-vcf', 'vcf-ops-01', 'vm-007', 'VM-007 (SQL-Prod)', 'High CPU Ready Latency on Virtual Machine VM-007', 'WARNING', 'ACTIVE', now - 18 * 60 * 1000, now - 2 * 60 * 1000);
+      insertAlert.run('alt-98235-vcf', 'vcf-ops-02', 'esx-01', 'esx-01.corp.local', 'Physical Power Supply Unit Fault', 'CRITICAL', 'ACTIVE', now - 42 * 60 * 1000, now - 5 * 60 * 1000);
+      insertAlert.run('alt-98236-vcf', 'vcf-ops-01', 'datastore-01', 'vsanDatastore', 'Datastore Capacity Usage Exceeds 85% Warning', 'WARNING', 'ACTIVE', now - 95 * 60 * 1000, now - 10 * 60 * 1000);
+      insertAlert.run('alt-98237-vcf', 'vcf-ops-01', 'vm-008', 'VM-008 (Web-App)', 'Snapshot age exceeds 7 days', 'INFO', 'ACTIVE', now - 180 * 60 * 1000, now - 60 * 60 * 1000);
     }
 
     const metricsCount = db.prepare('SELECT count(*) as count FROM raw_metrics').get();

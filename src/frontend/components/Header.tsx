@@ -1,4 +1,5 @@
 import React from 'react';
+import { TIME_RANGES, useApi } from '../api';
 
 interface HeaderProps {
   currentPath: string;
@@ -17,6 +18,10 @@ export const Header: React.FC<HeaderProps> = ({
   selectedTimeRange,
   onSelectTimeRange
 }) => {
+  // Re-read on navigation so instances added or removed in Settings show up in the scope list.
+  const { data } = useApi<any[]>(`/instances?nav=${encodeURIComponent(currentPath)}`);
+  const instances = Array.isArray(data) ? data : [];
+
   return (
     <header style={{ background: '#1e293b', borderBottom: '1px solid #334155' }}>
       {/* Top Global Header Bar */}
@@ -57,22 +62,21 @@ export const Header: React.FC<HeaderProps> = ({
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div>
-            <label style={{ fontSize: '12px', color: '#94a3b8', marginRight: '6px' }}>Instance Scope:</label>
-            <select value={selectedInstance} onChange={(e) => onSelectInstance(e.target.value)}>
-              <option value="ALL">All VCF Instances (5)</option>
-              <option value="vcf-ops-01">VCF-Ops-01 (Datacenter East)</option>
-              <option value="vcf-ops-02">VCF-Ops-02 (Datacenter West)</option>
+            <label htmlFor="instance-scope" style={{ fontSize: '12px', color: '#94a3b8', marginRight: '6px' }}>Instance Scope:</label>
+            <select id="instance-scope" value={selectedInstance} onChange={(e) => onSelectInstance(e.target.value)}>
+              <option value="ALL">All VCF Instances ({instances.length})</option>
+              {instances.map(inst => (
+                <option key={inst.id} value={inst.id}>{inst.name}</option>
+              ))}
             </select>
           </div>
 
           <div>
-            <label style={{ fontSize: '12px', color: '#94a3b8', marginRight: '6px' }}>Time Range:</label>
-            <select value={selectedTimeRange} onChange={(e) => onSelectTimeRange(e.target.value)}>
-              <option value="1h">Last 1 Hour</option>
-              <option value="6h">Last 6 Hours</option>
-              <option value="24h">Last 24 Hours</option>
-              <option value="7d">Last 7 Days</option>
-              <option value="30d">Last 30 Days</option>
+            <label htmlFor="time-range" style={{ fontSize: '12px', color: '#94a3b8', marginRight: '6px' }}>Time Range:</label>
+            <select id="time-range" value={selectedTimeRange} onChange={(e) => onSelectTimeRange(e.target.value)}>
+              {TIME_RANGES.map(r => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
             </select>
           </div>
         </div>

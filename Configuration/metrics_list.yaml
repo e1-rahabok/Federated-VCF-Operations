@@ -21,6 +21,24 @@ object_types:
   # ----------------------------------------------------------------------------
   VirtualMachine:
     description: "Virtual Machine performance metrics"
+    # Properties (text/configuration values) read with the bulk property query.
+    # A key the instance does not publish for an object is simply skipped.
+    properties:
+      - property_key: "summary|guest|ipAddress"
+        name: "IP Address"
+
+      - property_key: "summary|guest|fullName"
+        name: "Guest OS"
+
+      - property_key: "summary|runtime|powerState"
+        name: "Power State"
+
+      - property_key: "config|hardware|numCpu"
+        name: "vCPU Count"
+
+      - property_key: "config|hardware|memoryKB"
+        name: "Configured Memory (KB)"
+
     metrics:
       - key: "cpu|usage_average"
         name: "CPU Usage (%)"
@@ -72,6 +90,24 @@ object_types:
   # ----------------------------------------------------------------------------
   HostSystem:
     description: "ESXi Physical Host metrics"
+    # Properties (text/configuration values) read with the bulk property query.
+    # A key the instance does not publish for an object is simply skipped.
+    properties:
+      - property_key: "net|mgmt_address"
+        name: "Management IP Address"
+
+      - property_key: "summary|version"
+        name: "ESXi Version"
+
+      - property_key: "sys|build"
+        name: "ESXi Build"
+
+      - property_key: "hardware|vendorModel"
+        name: "Hardware Model"
+
+      - property_key: "runtime|connectionState"
+        name: "Connection State"
+
     metrics:
       - key: "cpu|usage_average"
         name: "Host CPU Usage (%)"
@@ -104,6 +140,15 @@ object_types:
   # ----------------------------------------------------------------------------
   ClusterComputeResource:
     description: "vSphere Cluster aggregate capacity & utilization metrics"
+    # Properties (text/configuration values) read with the bulk property query.
+    # A key the instance does not publish for an object is simply skipped.
+    properties:
+      - property_key: "configuration|dasConfig|enabled"
+        name: "vSphere HA Enabled"
+
+      - property_key: "configuration|drsConfig|enabled"
+        name: "DRS Enabled"
+
     metrics:
       - key: "cpu|capacity_usage_pct"
         name: "Cluster CPU Usage (%)"
@@ -135,6 +180,12 @@ object_types:
   # ----------------------------------------------------------------------------
   Datastore:
     description: "Datastore capacity and storage latency metrics"
+    # Properties (text/configuration values) read with the bulk property query.
+    # A key the instance does not publish for an object is simply skipped.
+    properties:
+      - property_key: "summary|type"
+        name: "Datastore Type"
+
     metrics:
       - key: "diskspace|usage_capacity_pct"
         name: "Datastore Usage (%)"

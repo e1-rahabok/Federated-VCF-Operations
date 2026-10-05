@@ -36,6 +36,17 @@ export class RollupAggregator {
     }
   }
 
+  public async purgeExpiredSummaryMetrics(retentionDays: number = 90): Promise<number> {
+    const db = getDatabase();
+    const purgeThreshold = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+    try {
+      const result = db.prepare('DELETE FROM summary_metrics WHERE time_bucket < ?').run(purgeThreshold);
+      return result.changes || 0;
+    } catch (err) {
+      return 0;
+    }
+  }
+
   public async purgeExpiredRawMetrics(retentionHours: number = 48): Promise<number> {
     const db = getDatabase();
     const purgeThreshold = Date.now() - retentionHours * 60 * 60 * 1000;

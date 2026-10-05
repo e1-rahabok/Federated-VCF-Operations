@@ -1,19 +1,110 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StatCard } from '../components/StatCard';
+import { apiPut, formatUtc, formatValue, instanceQuery, useApi, type PageProps } from '../api';
 
-interface HomePageProps {
-  onNavigate: (path: string) => void;
-}
+const WIDGETS = [
+  { id: 'ACTIVE_ALERTS', title: 'Active Alerts Summary' },
+  { id: 'PINNED_OBJECTS', title: 'Pinned Infrastructure Objects' },
+  { id: 'INGESTION_STATUS', title: 'VCF Operations Ingestion Status' },
+  { id: 'QUICK_LAUNCHER', title: 'Quick Metrics Launcher' }
+];
 
-export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
+// Each launcher ranks the objects of one kind by the latest collected value of one stat key.
+const LAUNCHERS = [
+  { id: 'vm-cpu-ready', title: '⚡ Top 10 VM CPU Ready', kind: 'VirtualMachine', statKey: 'cpu|ready_summation' },
+  { id: 'host-cpu', title: '📊 Host CPU Utilization Comparison', kind: 'HostSystem', statKey: 'cpu|usage_average' },
+  { id: 'datastore-usage', title: '💾 Datastore Capacity Usage', kind: 'Datastore', statKey: 'diskspace|usage_capacity_pct' }
+];
+
+const UNIT_SUFFIX: Record<string, string> = { percent: '%', milliseconds: ' ms' };
+
+const LauncherCard: React.FC<{ launcher: typeof LAUNCHERS[number]; scope: string; onNavigate: (path: string) => void }> = ({ launcher, scope, onNavigate }) => {
+  const { data, error } = useApi<any>(`/metrics/top?kind=${launcher.kind}&statKey=${encodeURIComponent(launcher.statKey)}&limit=10${scope ? `&${scope}` : ''}`);
+  const resources: any[] = data?.resources || [];
+  const suffix = UNIT_SUFFIX[data?.unit] ?? (data?.unit ? ` ${data.unit}` : '');
+
+  return (
+    <div data-testid={`launcher-${launcher.id}`} style={{ flex: 1, minWidth: '260px', background: '#0f172a', padding: '12px', borderRadius: '6px' }}>
+      <div style={{ fontWeight: 700, fontSize: '14px' }}>{launcher.title}</div>
+      <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px' }}>{data?.name || launcher.statKey} · latest sample per object</div>
+      {error && <div style={{ fontSize: '12px', color: '#fca5a5' }}>⚠️ {error}</div>}
+      {data && resources.length === 0 && (
+        <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+          {data.collected ? 'No samples collected yet.' : <>Not collected: <code>{launcher.statKey}</code> is not active for {launcher.kind} in metrics_list.yaml.</>}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px' }}>
+        {resources.map((r, index) => (
+          <div key={`${r.instanceId}/${r.resourceUuid}`} data-testid="launcher-row" style={{ display: 'flex', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => onNavigate(`/objects/${encodeURIComponent(r.resourceUuid)}`)}>
+            <span>{index + 1}. {r.resourceName}</span>
+            <strong>{formatValue(r.value)}{suffix}</strong>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const SEVERITY_ORDER = ['CRITICAL', 'IMMEDIATE', 'WARNING', 'INFO'];
+const SEVERITY_TILES = [
+  { key: 'critical', label: 'CRITICAL', background: '#7f1d1d', color: '#fca5a5' },
+  { key: 'immediate', label: 'IMMEDIATE', background: '#7c2d12', color: '#fdba74' },
+  { key: 'warning', label: 'WARNING', background: '#78350f', color: '#fcd34d' },
+  { key: 'info', label: 'INFO', background: '#1e3a8a', color: '#93c5fd' }
+];
+
+export const HomePage: React.FC<PageProps> = ({ onNavigate, instanceId }) => {
+  const scope = instanceQuery(instanceId);
+  const withScope = (path: string) => scope ? `${path}${path.includes('?') ? '&' : '?'}${scope}` : path;
+
+  const instances = useApi<any[]>('/instances');
+  const status = useApi<any>('/system/status');
+  const alertSummary = useApi<any>(withScope('/alerts/summary'));
+  const activeAlerts = useApi<any[]>(withScope('/alerts?status=ACTIVE'));
+  const objectSummary = useApi<any>(withScope('/objects/summary'));
+  const pinned = useApi<any[]>('/objects/pinned');
+  const preferences = useApi<any>('/users/preferences');
+
   const [isCustomizing, setIsCustomizing] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [hiddenWidgets, setHiddenWidgets] = useState<string[]>([]);
+  const [saveMessage, setSaveMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const handleSavePreferences = () => {
-    setIsCustomizing(false);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+  useEffect(() => {
+    if (preferences.data) setHiddenWidgets(preferences.data.hiddenWidgets || []);
+  }, [preferences.data]);
+
+  const toggleWidget = (id: string) => {
+    setHiddenWidgets(current => current.includes(id) ? current.filter(w => w !== id) : [...current, id]);
   };
+
+  const handleSavePreferences = async () => {
+    try {
+      const saved = await apiPut('/users/preferences', { hiddenWidgets });
+      setHiddenWidgets(saved.hiddenWidgets);
+      setIsCustomizing(false);
+      setSaveMessage({ ok: true, text: 'Dashboard layout preferences saved.' });
+    } catch (err: any) {
+      setSaveMessage({ ok: false, text: `Could not save layout: ${err.message}` });
+    }
+  };
+
+  const summary = alertSummary.data || {};
+  const instanceList = Array.isArray(instances.data) ? instances.data : [];
+  const scopedInstances = instanceId === 'ALL' ? instanceList : instanceList.filter(i => i.id === instanceId);
+  const alerts = Array.isArray(activeAlerts.data) ? activeAlerts.data : [];
+  const topAlert = [...alerts].sort((a, b) =>
+    SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity) || b.startTime - a.startTime)[0];
+  const pinnedObjects = Array.isArray(pinned.data) ? pinned.data : [];
+  const isVisible = (id: string) => isCustomizing || !hiddenWidgets.includes(id);
+  const widgetStyle = (id: string): React.CSSProperties => ({
+    border: isCustomizing ? '2px dashed #3b82f6' : '1px solid #334155',
+    opacity: hiddenWidgets.includes(id) ? 0.45 : 1
+  });
+  const widgetToggle = (id: string) => isCustomizing && (
+    <button className="btn-secondary" style={{ fontSize: '12px', padding: '4px 8px' }} onClick={() => toggleWidget(id)}>
+      {hiddenWidgets.includes(id) ? 'Show widget' : 'Hide widget'}
+    </button>
+  );
 
   return (
     <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -34,129 +125,143 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {saveSuccess && (
-        <div style={{ background: '#064e3b', color: '#6ee7b7', padding: '12px', borderRadius: '6px', fontSize: '14px' }}>
-          ✅ Dashboard layout preferences saved successfully!
+      {saveMessage && (
+        <div style={{ background: saveMessage.ok ? '#064e3b' : '#7f1d1d', color: saveMessage.ok ? '#6ee7b7' : '#fca5a5', padding: '12px', borderRadius: '6px', fontSize: '14px' }}>
+          {saveMessage.ok ? '✅' : '⚠️'} {saveMessage.text}
         </div>
       )}
 
       {/* Summary KPI Cards Row */}
       <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-        <StatCard label="Total Monitored VCF Instances" value="5" subtext="All instances reporting" icon="🌐" accentColor="#3b82f6" />
-        <StatCard label="Active Critical Alerts" value="3" subtext="Requires immediate triage" icon="🚨" accentColor="#ef4444" />
-        <StatCard label="Total Monitored Objects" value="12,450" subtext="VMs, ESXi Hosts, Clusters" icon="📦" accentColor="#10b981" />
-        <StatCard label="Ingestion Metric Delta Rate" value="21,300/m" subtext="1-min high-watermark delta" icon="⚡" accentColor="#f59e0b" />
+        <StatCard label="Monitored VCF Instances" value={scopedInstances.length} subtext={`${scopedInstances.filter(i => i.status === 'HEALTHY').length} healthy`} icon="🌐" accentColor="#3b82f6" />
+        <StatCard label="Active Critical Alerts" value={summary.critical ?? 0} subtext={`${alerts.length} active alerts in total`} icon="🚨" accentColor="#ef4444" />
+        <StatCard label="Total Monitored Objects" value={objectSummary.data?.total ?? 0} subtext="VMs, ESXi hosts, clusters, datastores" icon="📦" accentColor="#10b981" />
+        <StatCard label="Samples Ingested (Last 5 Min)" value={status.data?.samplesLast5Min ?? 0} subtext={`Last poll: ${formatUtc(status.data?.lastPoll)}`} icon="⚡" accentColor="#f59e0b" />
       </div>
 
-      {/* 2x2 Widget Grid Layout */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         {/* Widget 1: Active Alerts Summary */}
-        <div className="panel" style={{ border: isCustomizing ? '2px dashed #3b82f6' : '1px solid #334155' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Active Alerts Summary</h3>
-            <button className="btn-secondary" style={{ fontSize: '12px', padding: '4px 8px' }} onClick={() => onNavigate('/alerts')}>
-              View All Alerts ➔
-            </button>
-          </div>
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-            <div style={{ flex: 1, background: '#7f1d1d', padding: '12px', borderRadius: '6px', cursor: 'pointer' }} onClick={() => onNavigate('/alerts?severity=CRITICAL')}>
-              <div style={{ fontSize: '20px', fontWeight: 800, color: '#fca5a5' }}>3</div>
-              <div style={{ fontSize: '12px', color: '#fca5a5' }}>CRITICAL</div>
+        {isVisible('ACTIVE_ALERTS') && (
+          <div className="panel" data-testid="widget-ACTIVE_ALERTS" style={widgetStyle('ACTIVE_ALERTS')}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 700 }}>{WIDGETS[0].title}</h3>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {widgetToggle('ACTIVE_ALERTS')}
+                <button className="btn-secondary" style={{ fontSize: '12px', padding: '4px 8px' }} onClick={() => onNavigate('/alerts')}>
+                  View All Alerts ➔
+                </button>
+              </div>
             </div>
-            <div style={{ flex: 1, background: '#78350f', padding: '12px', borderRadius: '6px', cursor: 'pointer' }} onClick={() => onNavigate('/alerts?severity=WARNING')}>
-              <div style={{ fontSize: '20px', fontWeight: 800, color: '#fcd34d' }}>14</div>
-              <div style={{ fontSize: '12px', color: '#fcd34d' }}>WARNING</div>
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+              {SEVERITY_TILES.map(tile => (
+                <div key={tile.key} data-testid={`alert-count-${tile.key}`} style={{ flex: 1, background: tile.background, padding: '12px', borderRadius: '6px', cursor: 'pointer' }} onClick={() => onNavigate('/alerts')}>
+                  <div style={{ fontSize: '20px', fontWeight: 800, color: tile.color }}>{summary[tile.key] ?? 0}</div>
+                  <div style={{ fontSize: '12px', color: tile.color }}>{tile.label}</div>
+                </div>
+              ))}
             </div>
-            <div style={{ flex: 1, background: '#1e3a8a', padding: '12px', borderRadius: '6px', cursor: 'pointer' }} onClick={() => onNavigate('/alerts?severity=INFO')}>
-              <div style={{ fontSize: '20px', fontWeight: 800, color: '#93c5fd' }}>8</div>
-              <div style={{ fontSize: '12px', color: '#93c5fd' }}>INFO</div>
+            <div style={{ fontSize: '13px', background: '#0f172a', padding: '10px', borderRadius: '6px' }}>
+              {topAlert ? (
+                <span style={{ cursor: 'pointer' }} onClick={() => onNavigate(`/alerts/${encodeURIComponent(topAlert.alertId)}`)}>
+                  🔥 <strong>Top Alert:</strong> <span style={{ color: '#fca5a5' }}>{topAlert.alertName}</span> on <code>{topAlert.resourceName}</code> ({topAlert.instanceId})
+                </span>
+              ) : (
+                <span style={{ color: '#94a3b8' }}>No active alerts.</span>
+              )}
             </div>
           </div>
-          <div style={{ fontSize: '13px', background: '#0f172a', padding: '10px', borderRadius: '6px' }}>
-            🔥 <strong>Top Alert:</strong> <span style={{ color: '#fca5a5' }}>Physical Power Supply Unit Fault</span> on host <code>esx-02.corp.local</code> (VCF-Ops-02)
-          </div>
-        </div>
+        )}
 
         {/* Widget 2: Pinned Infrastructure Objects */}
-        <div className="panel" style={{ border: isCustomizing ? '2px dashed #3b82f6' : '1px solid #334155' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Pinned Infrastructure Objects</h3>
-            <button className="btn-secondary" style={{ fontSize: '12px', padding: '4px 8px' }} onClick={() => onNavigate('/metrics')}>
-              Explore Tree ➔
-            </button>
+        {isVisible('PINNED_OBJECTS') && (
+          <div className="panel" data-testid="widget-PINNED_OBJECTS" style={widgetStyle('PINNED_OBJECTS')}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 700 }}>{WIDGETS[1].title}</h3>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {widgetToggle('PINNED_OBJECTS')}
+                <button className="btn-secondary" style={{ fontSize: '12px', padding: '4px 8px' }} onClick={() => onNavigate('/metrics')}>
+                  Explore Tree ➔
+                </button>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Resource Name</th>
+                  <th>Kind</th>
+                  <th>Instance</th>
+                  <th>CPU Usage</th>
+                  <th>Active Alerts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pinnedObjects.length === 0 ? (
+                  <tr><td colSpan={5} style={{ color: '#94a3b8', textAlign: 'center' }}>No pinned objects. Open an object and choose "Pin to Home".</td></tr>
+                ) : pinnedObjects.map(o => {
+                  const cpu = (o.latestMetrics || []).find((m: any) => m.statKey === 'cpu|usage_average');
+                  return (
+                    <tr key={`${o.instanceId}/${o.resourceUuid}`} style={{ cursor: 'pointer' }} onClick={() => onNavigate(`/objects/${encodeURIComponent(o.resourceUuid)}`)}>
+                      <td><strong>{o.resourceName}</strong></td>
+                      <td>{o.resourceKind}</td>
+                      <td>{o.instanceName || o.instanceId}</td>
+                      <td>{cpu ? `${formatValue(cpu.value)}%` : '—'}</td>
+                      <td><span className={`badge ${o.activeAlerts > 0 ? 'badge-warning' : 'badge-healthy'}`}>{o.activeAlerts}</span></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Resource Name</th>
-                <th>Kind</th>
-                <th>CPU Usage</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr style={{ cursor: 'pointer' }} onClick={() => onNavigate('/objects/cluster-01')}>
-                <td><strong>Cluster-vSAN-01</strong></td>
-                <td>Cluster</td>
-                <td>78%</td>
-                <td><span className="badge badge-healthy">HEALTHY</span></td>
-              </tr>
-              <tr style={{ cursor: 'pointer' }} onClick={() => onNavigate('/objects/vm-007')}>
-                <td><strong>VM-007 (SQL-Prod)</strong></td>
-                <td>VirtualMachine</td>
-                <td>94%</td>
-                <td><span className="badge badge-warning">WARNING</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        )}
 
         {/* Widget 3: VCF Ingestion Status */}
-        <div className="panel" style={{ border: isCustomizing ? '2px dashed #3b82f6' : '1px solid #334155' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>VCF Operations Ingestion Status</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', background: '#0f172a', padding: '12px', borderRadius: '6px' }}>
-              <div>
-                <strong>VCF-Ops-01 (Datacenter East)</strong>
-                <div style={{ fontSize: '12px', color: '#94a3b8' }}>vcf-ops-01.corp.local | OpsToken Auth</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <span className="badge badge-healthy">HEALTHY</span>
-                <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>12,400 m/min</div>
-              </div>
+        {isVisible('INGESTION_STATUS') && (
+          <div className="panel" data-testid="widget-INGESTION_STATUS" style={widgetStyle('INGESTION_STATUS')}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 700 }}>{WIDGETS[2].title}</h3>
+              {widgetToggle('INGESTION_STATUS')}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', background: '#0f172a', padding: '12px', borderRadius: '6px' }}>
-              <div>
-                <strong>VCF-Ops-02 (Datacenter West)</strong>
-                <div style={{ fontSize: '12px', color: '#94a3b8' }}>vcf-ops-02.corp.local | Bearer Token Auth</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <span className="badge badge-healthy">HEALTHY</span>
-                <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>8,900 m/min</div>
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {scopedInstances.length === 0 && (
+                <div style={{ color: '#94a3b8', fontSize: '13px' }}>
+                  No VCF Operations instances registered. <a href="/settings" onClick={(e) => { e.preventDefault(); onNavigate('/settings'); }}>Add one in Settings</a>.
+                </div>
+              )}
+              {scopedInstances.map(inst => (
+                <div key={inst.id} style={{ display: 'flex', justifyContent: 'space-between', background: '#0f172a', padding: '12px', borderRadius: '6px' }}>
+                  <div>
+                    <strong>{inst.name}</strong>
+                    <div style={{ fontSize: '12px', color: '#94a3b8' }}>{inst.hostname} | {inst.authType === 'BEARER_TOKEN' ? 'Bearer Token Auth' : 'OpsToken Auth'}</div>
+                    {inst.lastError && <div style={{ fontSize: '12px', color: '#fca5a5', marginTop: '4px' }}>{inst.lastError}</div>}
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span className={`badge ${inst.status === 'HEALTHY' ? 'badge-healthy' : inst.status === 'ERROR' ? 'badge-critical' : 'badge-info'}`}>{inst.status}</span>
+                    <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>Last poll: {formatUtc(inst.lastPoll)}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-
-        {/* Widget 4: Quick Metrics Launcher */}
-        <div className="panel" style={{ border: isCustomizing ? '2px dashed #3b82f6' : '1px solid #334155' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>Quick Metrics Launcher</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <button className="btn-secondary" style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between' }} onClick={() => onNavigate('/metrics')}>
-              <span>📊 Host CPU Utilization Comparison</span>
-              <span>➔</span>
-            </button>
-            <button className="btn-secondary" style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between' }} onClick={() => onNavigate('/metrics')}>
-              <span>💾 Datastore Capacity Exhaustion Trends</span>
-              <span>➔</span>
-            </button>
-            <button className="btn-secondary" style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between' }} onClick={() => onNavigate('/metrics')}>
-              <span>⚡ VM CPU Ready Latency Overlay (Top 10)</span>
-              <span>➔</span>
-            </button>
-          </div>
-        </div>
+        )}
       </div>
+
+      {/* Widget 4: Quick Metrics Launcher */}
+      {isVisible('QUICK_LAUNCHER') && (
+        <div className="panel" data-testid="widget-QUICK_LAUNCHER" style={widgetStyle('QUICK_LAUNCHER')}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 700 }}>🚀 {WIDGETS[3].title}</h3>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {widgetToggle('QUICK_LAUNCHER')}
+              <button className="btn-secondary" style={{ fontSize: '12px', padding: '4px 8px' }} onClick={() => onNavigate('/metrics')}>
+                Open Metrics Explorer ➔
+              </button>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            {LAUNCHERS.map(launcher => <LauncherCard key={launcher.id} launcher={launcher} scope={scope} onNavigate={onNavigate} />)}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

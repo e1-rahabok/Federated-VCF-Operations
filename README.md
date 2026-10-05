@@ -58,14 +58,18 @@ It polls metrics, objects, and alerts every 1 minute from multiple VCF Operation
 │       ├── Frontend_Developer_Guide.md
 │       ├── OpenAPI_Spec.yaml
 │       └── Testing_and_Operations_Guide.md
-├── src/                         # Application Source Code Scaffolding
+├── src/                         # Application Source Code
 │   ├── backend/                 # Node.js Ingestion Engine, DB & REST API
-│   │   ├── api/                 # REST routes
-│   │   ├── db/                  # Database models & migrations
-│   │   ├── ingestion/           # Polling scheduler & watermark manager
-│   │   └── index.ts             # Backend entry point
-│   └── frontend/                # React 18 Web UI
-│       └── pages/               # Home, Alerts, & Metrics pages
+│   │   ├── api/                 # Express routers (REST API under /api/v1)
+│   │   ├── db/                  # SQLite schema
+│   │   ├── ingestion/           # VCF Operations API client, scheduler & watermarks
+│   │   ├── app.ts               # Builds the Express app (API + compiled SPA)
+│   │   └── index.ts             # Single entry point: starts scheduler and HTTP server
+│   ├── frontend/                # React 18 Web UI (the only UI; served by the backend)
+│   │   ├── components/          # Header, charts, console link
+│   │   └── pages/               # Home, Alerts, Metrics, Object, Settings pages
+│   └── shared/                  # YAML collection-rule parser used by both sides
+├── tests/                       # Vitest suites (client, ingestion, React DOM) + VCF Operations stub
 ├── scripts/                     # Operational scripts
 │   └── prune_data.ps1           # Database retention cleanup script
 ├── .env.example                 # Environment variables configuration template
@@ -81,7 +85,7 @@ It polls metrics, objects, and alerts every 1 minute from multiple VCF Operation
 ## 🚀 Quick Start Guide
 
 ### Prerequisites
-* **Node.js**: v18.x or v20.x
+* **Node.js**: v22.18 or later (v24 recommended). The backend runs TypeScript directly and uses the built-in `node:sqlite` module
 * **Docker & Docker Compose** (for containerized setup)
 * **Access**: Credentials for target VCF Operations 9 instances
 
@@ -97,12 +101,24 @@ cp .env.example .env
 # Install dependencies
 npm install
 
-# Run database migrations
-npm run db:migrate
+# Build the React frontend into dist/frontend
+npm run build
 
-# Start development server
-npm run dev
+# Start the application (REST API + web UI + ingestion scheduler) on http://localhost:3000
+npm start
 ```
+
+The SQLite schema is created automatically on first start. The database starts empty:
+open **Settings → Add VCF Instance Connection**, enter the instance hostname and
+credentials, use **Test Connection**, then save. Data appears after the next polling cycle.
+
+For development, run `npm run dev` (backend with auto-restart) and `npm run dev:frontend`
+(Vite dev server on port 5173, proxying `/api` to the backend) in two terminals.
+
+Other commands: `npm test` (Vitest), `npm run typecheck`.
+
+Set `SEED_DEMO_DATA=true` to load a small, clearly fictitious demo dataset when no
+VCF Operations instance is available. Demo instances are disabled and never polled.
 
 ### 2. Docker Compose Deployment
 ```bash

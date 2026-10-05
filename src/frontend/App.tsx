@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Header } from './components/Header';
 import { LoginPage } from './pages/LoginPage';
 import { HomePage } from './pages/HomePage';
@@ -14,6 +14,12 @@ export const App: React.FC = () => {
   const [selectedInstance, setSelectedInstance] = useState<string>('ALL');
   const [selectedTimeRange, setSelectedTimeRange] = useState<string>('24h');
 
+  useEffect(() => {
+    const onPopState = () => setCurrentPath(window.location.pathname || '/');
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
   const navigate = (path: string) => {
     setCurrentPath(path);
     window.history.pushState({}, '', path);
@@ -23,28 +29,36 @@ export const App: React.FC = () => {
     return <LoginPage onLoginSuccess={() => setIsAuthenticated(true)} />;
   }
 
+  const pageProps = { onNavigate: navigate, instanceId: selectedInstance, timeRange: selectedTimeRange };
+
   const renderCurrentPage = () => {
     if (currentPath === '/') {
-      return <HomePage onNavigate={navigate} />;
+      return <HomePage {...pageProps} />;
     }
     if (currentPath === '/alerts') {
-      return <AlertsPage onNavigate={navigate} />;
+      return <AlertsPage {...pageProps} />;
     }
     if (currentPath.startsWith('/alerts/')) {
-      const alertId = currentPath.split('/alerts/')[1] || 'alt-98234-vcf';
-      return <AlertDetailPage alertId={alertId} onNavigate={navigate} />;
+      return <AlertDetailPage alertId={decodeURIComponent(currentPath.split('/alerts/')[1])} {...pageProps} />;
     }
     if (currentPath === '/metrics') {
-      return <MetricsPage onNavigate={navigate} />;
+      return <MetricsPage {...pageProps} />;
     }
     if (currentPath.startsWith('/objects/')) {
-      const resourceUuid = currentPath.split('/objects/')[1] || 'vm-007';
-      return <ObjectDetailPage resourceUuid={resourceUuid} onNavigate={navigate} />;
+      return <ObjectDetailPage resourceUuid={decodeURIComponent(currentPath.split('/objects/')[1])} {...pageProps} />;
     }
     if (currentPath === '/settings') {
       return <SettingsPage />;
     }
-    return <HomePage onNavigate={navigate} />;
+    return (
+      <div style={{ padding: '24px' }}>
+        <div className="panel">
+          <h2>404 - Page Not Found</h2>
+          <p style={{ color: '#94a3b8', marginTop: '8px' }}>The requested path <code>{currentPath}</code> was not recognized.</p>
+          <button className="btn-primary" style={{ marginTop: '12px' }} onClick={() => navigate('/')}>🏠 Return to Home</button>
+        </div>
+      </div>
+    );
   };
 
   return (

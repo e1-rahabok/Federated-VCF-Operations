@@ -1,103 +1,153 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
+import { ConsoleLink } from '../components/ConsoleLink';
+import { MetricCharts, type MetricKey } from '../components/MetricCharts';
+import { apiGet, apiPut, formatUtc, formatValue, rangeToMs, useApi, type PageProps } from '../api';
+import { severityBadge } from './AlertsPage';
 
-interface ObjectDetailPageProps {
+interface ObjectDetailPageProps extends PageProps {
   resourceUuid: string;
-  onNavigate: (path: string) => void;
 }
 
-export const ObjectDetailPage: React.FC<ObjectDetailPageProps> = ({ resourceUuid, onNavigate }) => {
-  const handleOpenNativeConsole = () => {
-    window.open(`https://vcf-ops-01.corp.local/ui/index.action#...`, '_blank', 'noopener,noreferrer');
+export const ObjectDetailPage: React.FC<ObjectDetailPageProps> = ({ resourceUuid, onNavigate, timeRange }) => {
+  const objectReq = useApi<any>(`/objects/${encodeURIComponent(resourceUuid)}`);
+  const object = objectReq.data;
+  const alertsReq = useApi<any[]>(object ? `/alerts?status=ACTIVE&resourceUuid=${encodeURIComponent(resourceUuid)}&instanceId=${encodeURIComponent(object.instanceId)}` : null);
+  const keysReq = useApi<MetricKey[]>(object ? `/metrics/keys?resourceUuid=${encodeURIComponent(resourceUuid)}&instanceId=${encodeURIComponent(object.instanceId)}` : null);
+  const [pinError, setPinError] = useState<string | null>(null);
+
+  const startTime = useMemo(() => Date.now() - rangeToMs(timeRange), [timeRange]);
+  const alerts = Array.isArray(alertsReq.data) ? alertsReq.data : [];
+  const keys = Array.isArray(keysReq.data) ? keysReq.data : [];
+
+  const backButton = (
+    <button className="btn-secondary" style={{ marginBottom: '12px', fontSize: '13px' }} onClick={() => onNavigate('/metrics')}>
+      ⬅️ Back to Metrics Analysis
+    </button>
+  );
+
+  if (objectReq.error) {
+    return (
+      <div style={{ padding: '24px' }}>
+        {backButton}
+        <div className="panel" style={{ color: '#fca5a5' }}>⚠️ {objectReq.error}</div>
+      </div>
+    );
+  }
+  if (!object) {
+    return <div style={{ padding: '24px', color: '#94a3b8' }}>Loading object…</div>;
+  }
+
+  const handleTogglePin = async () => {
+    try {
+      const prefs = await apiGet('/users/preferences');
+      const others = (prefs.pinnedObjects || []).filter((p: any) => !(p.instanceId === object.instanceId && p.resourceUuid === object.resourceUuid));
+      const pinnedObjects = object.pinned ? others : [...others, { instanceId: object.instanceId, resourceUuid: object.resourceUuid }];
+      await apiPut('/users/preferences', { pinnedObjects });
+      setPinError(null);
+      objectReq.reload();
+    } catch (err: any) {
+      setPinError(err.message);
+    }
   };
 
   return (
     <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <div>
-        <button className="btn-secondary" style={{ marginBottom: '12px', fontSize: '13px' }} onClick={() => onNavigate('/metrics')}>
-          ⬅️ Back to Metrics Analysis
-        </button>
-        <h1 style={{ fontSize: '20px', fontWeight: 800 }}>OBJECT DETAIL: VirtualMachine - {resourceUuid} (SQL-Database-Prod)</h1>
+        {backButton}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ fontSize: '20px', fontWeight: 800 }}>OBJECT DETAIL: {object.resourceKind} - {object.resourceName}</h1>
+          <button className={object.pinned ? 'btn-secondary' : 'btn-primary'} onClick={handleTogglePin}>
+            {object.pinned ? '📌 Unpin from Home' : '📌 Pin to Home'}
+          </button>
+        </div>
+        {pinError && <div style={{ color: '#fca5a5', fontSize: '13px', marginTop: '8px' }}>⚠️ {pinError}</div>}
       </div>
 
-      {/* Summary Properties & Hierarchy Grid */}
+      {/* Summary Properties & Latest Values Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         <div className="panel">
           <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '12px', color: '#94a3b8' }}>OBJECT PROPERTIES SUMMARY</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px' }}>
-            <div><strong>VCF Instance:</strong> VCF-Ops-01 (Datacenter East)</div>
-            <div><strong>Adapter Type:</strong> VMWARE</div>
-            <div><strong>IP Address:</strong> 10.20.30.45</div>
-            <div><strong>Guest OS:</strong> RHEL 9 (64-bit)</div>
+            <div><strong>VCF Instance:</strong> {object.instanceName || object.instanceId} {object.instanceHostname && <code>{object.instanceHostname}</code>}</div>
+            <div><strong>Resource Kind:</strong> {object.resourceKind}</div>
+            <div><strong>Adapter Type:</strong> {object.adapterKind}</div>
+            <div><strong>Resource UUID:</strong> <code>{object.resourceUuid}</code></div>
+            <div><strong>Last Seen:</strong> {formatUtc(object.lastSeen)}</div>
+            {(object.properties || []).map((p: any) => (
+              <div key={p.key} data-testid="object-property"><strong>{p.name}:</strong> {p.value}</div>
+            ))}
           </div>
         </div>
 
         <div className="panel">
           <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '12px', color: '#94a3b8' }}>PARENT HIERARCHY BREADCRUMBS</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px' }}>
-            <div><strong>vCenter:</strong> <code>vc-01.corp.local</code></div>
-            <div><strong>Cluster:</strong> <code>Cluster-vSAN-01</code></div>
-            <div><strong>ESXi Host:</strong> <code>esx-04.corp.local</code></div>
-            <div><strong>Datastore:</strong> <code>vsanDatastore</code></div>
+            {(object.hierarchy || []).length === 0 && (
+              <div style={{ color: '#94a3b8', fontSize: '13px' }}>No related objects have been collected for this object yet.</div>
+            )}
+            {(object.hierarchy || []).map((h: any) => (
+              <div key={`${h.kind}/${h.uuid}`} data-testid="hierarchy-level">
+                <strong>{h.label}:</strong>{' '}
+                {h.tracked ? (
+                  <a href={`/objects/${encodeURIComponent(h.uuid)}`} onClick={(e) => { e.preventDefault(); onNavigate(`/objects/${encodeURIComponent(h.uuid)}`); }}><code>{h.name}</code></a>
+                ) : (
+                  <code>{h.name}</code>
+                )}
+              </div>
+            ))}
           </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
+
+        <div className="panel">
+          <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '12px', color: '#94a3b8' }}>LATEST COLLECTED VALUES</h3>
+          {(object.latestMetrics || []).length === 0 ? (
+            <div style={{ color: '#94a3b8', fontSize: '13px' }}>No metric samples have been collected for this object.</div>
+          ) : (
+            <table>
+              <thead><tr><th>Metric</th><th>Value</th><th>Sampled</th></tr></thead>
+              <tbody>
+                {object.latestMetrics.map((m: any) => {
+                  const key = keys.find(k => k.statKey === m.statKey);
+                  return (
+                    <tr key={m.statKey} data-testid="latest-metric">
+                      <td>{key?.name || m.statKey}</td>
+                      <td><strong>{formatValue(m.value)}</strong></td>
+                      <td>{formatUtc(m.timestamp)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
       {/* Active Alerts Bound to this Resource */}
       <div className="panel">
-        <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '12px' }}>Active Alerts on this Resource (2 Active)</h3>
+        <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '12px' }}>Active Alerts on this Resource ({alerts.length} Active)</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{ background: '#78350f', padding: '12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }} onClick={() => onNavigate('/alerts/alt-98234-vcf')}>
-            <span>⚠️ [WARNING] High CPU Ready Latency (Triggered 18 mins ago)</span>
-            <span>Inspect Alert ➔</span>
-          </div>
-          <div style={{ background: '#1e3a8a', padding: '12px', borderRadius: '6px', display: 'flex', justifyContent: 'space-between' }}>
-            <span>ℹ️ [INFO] Snapshot age exceeds 7 days</span>
-            <span>Triggered 3h ago</span>
-          </div>
+          {alerts.length === 0 && <div style={{ color: '#94a3b8', fontSize: '13px' }}>No active alerts.</div>}
+          {alerts.map(a => (
+            <div key={a.alertId} data-testid="object-alert" style={{ background: '#0f172a', padding: '12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }} onClick={() => onNavigate(`/alerts/${encodeURIComponent(a.alertId)}`)}>
+              <span><span className={`badge ${severityBadge(a.severity)}`}>{a.severity}</span> {a.alertName} (triggered {formatUtc(a.startTime)})</span>
+              <span>Inspect Alert ➔</span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Key Performance Metric Charts Grid (2x2) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-        <div className="panel">
-          <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>CPU Utilization (%)</h4>
-          <div style={{ background: '#0f172a', height: '100px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}>
-            📈 Current: 94% Avg | Peak: 98%
-          </div>
-        </div>
+      {/* Metric charts for every collected stat key */}
+      <MetricCharts resourceUuid={object.resourceUuid} instanceId={object.instanceId} keys={keys} resolution="5m" startTime={startTime} />
 
-        <div className="panel">
-          <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>Memory Consumed (KB)</h4>
-          <div style={{ background: '#0f172a', height: '100px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
-            📈 Consumed: 32 GB / 64 GB Configured
-          </div>
-        </div>
-
-        <div className="panel">
-          <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>Virtual Disk Latency (ms)</h4>
-          <div style={{ background: '#0f172a', height: '100px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b' }}>
-            📈 Read Latency: 2.1ms | Write Latency: 4.8ms
-          </div>
-        </div>
-
-        <div className="panel">
-          <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>Network Throughput (KB/s)</h4>
-          <div style={{ background: '#0f172a', height: '100px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}>
-            📈 Rx: 14,200 KB/s | Tx: 8,900 KB/s
-          </div>
-        </div>
-      </div>
-
-      {/* External Action Toolbar */}
-      <div className="panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0f172a' }}>
-        <div>
-          <strong style={{ fontSize: '14px' }}>Want to manage or configure this object directly?</strong>
-          <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>Opens source VCF Operations 9 web console in a new browser tab</div>
-        </div>
-        <button className="btn-primary" style={{ padding: '10px 20px', fontSize: '14px' }} onClick={handleOpenNativeConsole}>
-          🚀 Open Object in VCF Operations Console ➔
-        </button>
-      </div>
+      <ConsoleLink
+        instanceId={object.instanceId}
+        resourceUuid={object.resourceUuid}
+        label="Open Object in VCF Operations Console"
+        description="Want to manage or configure this object directly?"
+      />
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert';
 import { WatermarkManager } from '../../src/backend/ingestion/watermark.ts';
 

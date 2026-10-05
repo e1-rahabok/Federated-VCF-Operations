@@ -21,6 +21,14 @@ export class WatermarkManager {
     return Date.now() - (2 * 60 * 1000);
   }
 
+  /** The stored watermark, or null when this instance/data type has never been polled. */
+  public getStoredWatermark(instanceId: string, dataType: 'METRICS' | 'ALERTS'): number | null {
+    const row = getDatabase()
+      .prepare('SELECT last_polled_timestamp FROM watermarks WHERE instance_id = ? AND data_type = ?')
+      .get(instanceId, dataType);
+    return row && row.last_polled_timestamp ? row.last_polled_timestamp : null;
+  }
+
   public async updateWatermark(instanceId: string, dataType: 'METRICS' | 'ALERTS', timestamp: number): Promise<void> {
     const db = getDatabase();
     try {
