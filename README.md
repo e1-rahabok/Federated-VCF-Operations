@@ -108,6 +108,13 @@ npm run build
 npm start
 ```
 
+**First sign-in.** On the first start an administrator account is created. Set
+`ADMIN_PASSWORD` (and optionally `ADMIN_USERNAME`, default `admin`) beforehand to choose
+its password; otherwise a random password is generated and printed once in the server log.
+Change it under **Settings → User Accounts & Access**, where administrators can also add
+read-only `VIEWER` accounts. Set `JWT_SECRET` to a long random value to keep users signed
+in across restarts.
+
 The SQLite schema is created automatically on first start. The database starts empty:
 open **Settings → Add VCF Instance Connection**, enter the instance hostname and
 credentials, use **Test Connection**, then save. Data appears after the next polling cycle.

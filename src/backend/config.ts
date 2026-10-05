@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import path from 'node:path';
 
 // DATABASE_URL is documented as "file:./data/vcf_ops.db"; node:sqlite wants a plain path.
@@ -10,7 +11,14 @@ function resolveDbFile(): string {
 export const CONFIG = {
   PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 3000,
   NODE_ENV: process.env.NODE_ENV || 'development',
-  JWT_SECRET: process.env.JWT_SECRET || 'vcf_ops_jwt_secret_key_change_me_in_prod',
+  // Signs session tokens. Without JWT_SECRET a random key is generated at startup, which is
+  // safe but means everyone must sign in again after a restart.
+  JWT_SECRET: process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex'),
+  SESSION_HOURS: process.env.SESSION_HOURS ? parseInt(process.env.SESSION_HOURS, 10) : 8,
+  // First administrator, created only when no user exists yet. With no ADMIN_PASSWORD a
+  // random password is generated and printed once to the server log.
+  ADMIN_USERNAME: process.env.ADMIN_USERNAME || 'admin',
+  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || '',
   ENCRYPTION_KEY: process.env.ENCRYPTION_KEY || '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
   RAW_METRICS_RETENTION_HOURS: process.env.RAW_METRICS_RETENTION_HOURS ? parseInt(process.env.RAW_METRICS_RETENTION_HOURS, 10) : 48,
   SUMMARY_METRICS_RETENTION_DAYS: process.env.SUMMARY_METRICS_RETENTION_DAYS ? parseInt(process.env.SUMMARY_METRICS_RETENTION_DAYS, 10) : 90,

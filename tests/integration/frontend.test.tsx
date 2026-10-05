@@ -9,11 +9,11 @@ import { HomePage } from '../../src/frontend/pages/HomePage';
 import { MetricsPage } from '../../src/frontend/pages/MetricsPage';
 import { ObjectDetailPage } from '../../src/frontend/pages/ObjectDetailPage';
 import { SettingsPage } from '../../src/frontend/pages/SettingsPage';
-import { setApiBase } from '../../src/frontend/api';
+import { setApiBase, setAuthToken } from '../../src/frontend/api';
 import { PollingScheduler } from '../../src/backend/ingestion/scheduler.ts';
 import { getDatabase } from '../../src/backend/db/database.ts';
 import { VcfOpsStub } from '../helpers/vcfOpsStub.ts';
-import { startTestApp } from '../helpers/testApp.ts';
+import { startTestApp, TEST_ADMIN } from '../helpers/testApp.ts';
 
 /**
  * The React pages are rendered in a DOM against the real application server. Every value
@@ -32,6 +32,7 @@ beforeAll(async () => {
   await stub.start();
   app = await startTestApp();
   setApiBase(app.baseUrl);
+  setAuthToken(app.token);
 
   stub.resources = [
     { identifier: 'uuid-vm-1', name: 'sql-prod-01', resourceKind: 'VirtualMachine' },
@@ -310,7 +311,7 @@ test('Alert detail page: shows the stored alert, its resource and a chart marked
 });
 
 test('Settings page: instances table, real connection test, add/delete instance and telemetry rule toggle', async () => {
-  render(<SettingsPage />);
+  render(<SettingsPage user={{ username: 'admin', role: 'ADMIN' }} />);
 
   await waitFor(() => expect(screen.getAllByTestId('instance-row')).toHaveLength(1));
   expect(screen.getByTestId('instance-row').textContent).toContain('Lab East');
@@ -385,7 +386,8 @@ test('App shell: instance scope lists registered instances and scoping filters t
   window.history.pushState({}, '', '/alerts');
   render(<App />);
 
-  const scope = screen.getByLabelText('Instance Scope:') as HTMLSelectElement;
+  const scope = await waitFor(() => screen.getByLabelText('Instance Scope:')) as HTMLSelectElement;
+  expect(screen.getByTestId('session-user').textContent).toContain('admin (ADMIN)');
   await waitFor(() => expect(Array.from(scope.options).map(o => o.textContent)).toEqual(['All VCF Instances (2)', 'Empty Site', 'Lab East']));
   await waitFor(() => expect(screen.getAllByTestId('alert-row')).toHaveLength(3));
 
@@ -402,4 +404,81 @@ test('App shell: instance scope lists registered instances and scoping filters t
   expect(window.location.pathname).toBe('/settings');
 
   await app.del('/instances/empty-site');
+});
+
+test('Sign-in flow: no session shows the login page, bad credentials are refused, sign-out ends the session', async () => {
+  setAuthToken(null);
+  window.history.pushState({}, '', '/alerts');
+  render(<App />);
+
+  // Without a session no data is requested or shown, only the sign-in form.
+  await waitFor(() => expect(screen.getByText('Sign in to your central portal')).toBeTruthy());
+  expect(screen.queryByText('Alerts Analysis Workspace')).toBeNull();
+  expect((screen.getByLabelText('Username') as HTMLInputElement).value).toBe('');
+  expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('');
+
+  fireEvent.change(screen.getByLabelText('Username'), { target: { value: TEST_ADMIN.username } });
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'not-the-password' } });
+  fireEvent.click(screen.getByText('Sign In'));
+  await waitFor(() => expect(screen.getByTestId('login-error').textContent).toContain('Invalid username or password.'));
+  expect(screen.queryByText('Alerts Analysis Workspace')).toBeNull();
+
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: TEST_ADMIN.password } });
+  fireEvent.click(screen.getByText('Sign In'));
+  await waitFor(() => expect(screen.getByText('Alerts Analysis Workspace')).toBeTruthy());
+  await waitFor(() => expect(screen.getAllByTestId('alert-row').length).toBeGreaterThan(0));
+  expect(screen.getByTestId('session-user').textContent).toContain('admin (ADMIN)');
+
+  fireEvent.click(screen.getByText('Sign Out'));
+  await waitFor(() => expect(screen.getByText('Sign in to your central portal')).toBeTruthy());
+  expect(screen.queryByTestId('alert-row')).toBeNull();
+
+  setAuthToken(app.token);
+});
+
+test('Accounts: an administrator creates a viewer; the viewer sees data but is refused changes; a revoked session returns to sign-in', async () => {
+  render(<SettingsPage user={{ username: 'admin', role: 'ADMIN' }} />);
+
+  await waitFor(() => expect(screen.getAllByTestId('user-row')).toHaveLength(1));
+  expect(screen.getByTestId('user-row').textContent).toContain('admin');
+
+  fireEvent.change(screen.getByLabelText('New Username'), { target: { value: 'noc-viewer' } });
+  fireEvent.change(screen.getByLabelText('Initial Password'), { target: { value: 'short' } });
+  fireEvent.click(screen.getByText('+ Add User'));
+  await waitFor(() => expect(screen.getByTestId('account-message').textContent).toContain('Password must be at least 8 characters.'));
+
+  fireEvent.change(screen.getByLabelText('Initial Password'), { target: { value: 'Viewer-Pw-12345' } });
+  fireEvent.click(screen.getByText('+ Add User'));
+  await waitFor(() => expect(screen.getAllByTestId('user-row')).toHaveLength(2));
+  expect(screen.getAllByTestId('user-row')[1].textContent).toContain('noc-viewer');
+  expect(screen.getAllByTestId('user-row')[1].textContent).toContain('VIEWER');
+  const storedHash = getDatabase().prepare("SELECT password_hash FROM users WHERE username = 'noc-viewer'").get().password_hash;
+  expect(storedHash).toMatch(/^scrypt:[0-9a-f]{32}:[0-9a-f]{128}$/);
+  cleanup();
+
+  // Sign in as the viewer through the real app
+  setAuthToken(null);
+  window.history.pushState({}, '', '/settings');
+  render(<App />);
+  await waitFor(() => expect(screen.getByText('Sign in to your central portal')).toBeTruthy());
+  fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'noc-viewer' } });
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Viewer-Pw-12345' } });
+  fireEvent.click(screen.getByText('Sign In'));
+
+  await waitFor(() => expect(screen.getByTestId('session-user').textContent).toContain('noc-viewer (VIEWER)'));
+  await waitFor(() => expect(screen.getAllByTestId('instance-row')).toHaveLength(1));
+  expect(screen.getByTestId('viewer-notice')).toBeTruthy();
+  expect(screen.queryByTestId('user-row')).toBeNull();
+
+  // The server, not just the UI, refuses a viewer's change.
+  fireEvent.click(within(screen.getByTestId('instance-row')).getByText('Delete'));
+  await waitFor(() => expect(screen.getByText(/Could not delete Lab East: Administrator role required\./)).toBeTruthy());
+  expect(getDatabase().prepare("SELECT count(*) as count FROM vcf_instances WHERE id = 'lab-east'").get().count).toBe(1);
+
+  // The administrator deletes the account: the viewer's next request is rejected and the app returns to sign-in.
+  expect((await app.del('/auth/users/noc-viewer')).status).toBe(200);
+  fireEvent.click(screen.getByText('Alerts'));
+  await waitFor(() => expect(screen.getByText('Sign in to your central portal')).toBeTruthy());
+
+  setAuthToken(app.token);
 });

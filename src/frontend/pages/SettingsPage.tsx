@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { parseYamlConfig } from '../../shared/telemetryConfig';
-import { apiDelete, apiGet, apiPost, apiPut, formatUtc, useApi } from '../api';
+import { apiDelete, apiGet, apiPost, apiPut, formatUtc, setAuthToken, useApi, type SessionUser } from '../api';
 
 const EMPTY_INSTANCE_FORM = {
   name: '',
@@ -15,7 +15,51 @@ const EMPTY_INSTANCE_FORM = {
   verifyTls: true
 };
 
-export const SettingsPage: React.FC = () => {
+interface SettingsPageProps {
+  user: SessionUser;
+}
+
+export const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
+  const isAdmin = user.role === 'ADMIN';
+  const usersReq = useApi<any[]>(isAdmin ? '/auth/users' : null);
+  const users = Array.isArray(usersReq.data) ? usersReq.data : [];
+  const [newUser, setNewUser] = useState({ username: '', password: '', role: 'VIEWER' });
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '' });
+  const [accountMessage, setAccountMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const handleChangePassword = async () => {
+    try {
+      const result = await apiPost('/auth/password', passwordForm);
+      // Earlier sessions are revoked by the change; continue with the fresh token.
+      setAuthToken(result.token);
+      setPasswordForm({ currentPassword: '', newPassword: '' });
+      setAccountMessage({ ok: true, text: 'Password changed. Other sessions for this account were signed out.' });
+    } catch (err: any) {
+      setAccountMessage({ ok: false, text: err.message });
+    }
+  };
+
+  const handleCreateUser = async () => {
+    try {
+      await apiPost('/auth/users', newUser);
+      setAccountMessage({ ok: true, text: `User ${newUser.username} created as ${newUser.role}.` });
+      setNewUser({ username: '', password: '', role: 'VIEWER' });
+      usersReq.reload();
+    } catch (err: any) {
+      setAccountMessage({ ok: false, text: err.message });
+    }
+  };
+
+  const handleDeleteUser = async (username: string) => {
+    try {
+      await apiDelete(`/auth/users/${encodeURIComponent(username)}`);
+      setAccountMessage({ ok: true, text: `User ${username} deleted.` });
+      usersReq.reload();
+    } catch (err: any) {
+      setAccountMessage({ ok: false, text: err.message });
+    }
+  };
+
   const instancesReq = useApi<any[]>('/instances');
   const statusReq = useApi<any>('/system/status');
   const instances = Array.isArray(instancesReq.data) ? instancesReq.data : [];
@@ -477,6 +521,74 @@ export const SettingsPage: React.FC = () => {
           ) : <div />}
           <button className="btn-primary" onClick={handleSaveTelemetryConfig}>💾 Save & Apply Dynamic Telemetry Rules</button>
         </div>
+      </div>
+
+      {/* Accounts Panel */}
+      <div className="panel" data-testid="accounts-panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 700 }}>User Accounts & Access</h3>
+
+        {accountMessage && (
+          <div data-testid="account-message" style={{ fontSize: '13px', fontWeight: 600, color: accountMessage.ok ? '#6ee7b7' : '#fca5a5' }}>
+            {accountMessage.ok ? '✅' : '⚠️'} {accountMessage.text}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div>
+            <label htmlFor="current-password" style={{ fontSize: '12px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Current Password ({user.username})</label>
+            <input id="current-password" type="password" value={passwordForm.currentPassword} onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} />
+          </div>
+          <div>
+            <label htmlFor="new-password" style={{ fontSize: '12px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>New Password (min. 8 characters)</label>
+            <input id="new-password" type="password" value={passwordForm.newPassword} onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} />
+          </div>
+          <button className="btn-secondary" onClick={handleChangePassword}>Change My Password</button>
+        </div>
+
+        {isAdmin ? (
+          <>
+            <table>
+              <thead><tr><th>Username</th><th>Role</th><th>Created</th><th>Actions</th></tr></thead>
+              <tbody>
+                {users.map(u => (
+                  <tr key={u.username} data-testid="user-row">
+                    <td><strong>{u.username}</strong></td>
+                    <td><span className={`badge ${u.role === 'ADMIN' ? 'badge-warning' : 'badge-info'}`}>{u.role}</span></td>
+                    <td>{formatUtc(u.createdAt)}</td>
+                    <td>
+                      {u.username === user.username ? <span style={{ color: '#94a3b8', fontSize: '12px' }}>signed in</span> : (
+                        <button className="btn-secondary" style={{ fontSize: '12px', color: '#fca5a5' }} onClick={() => handleDeleteUser(u.username)}>Delete</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div>
+                <label htmlFor="new-username" style={{ fontSize: '12px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>New Username</label>
+                <input id="new-username" type="text" value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} />
+              </div>
+              <div>
+                <label htmlFor="new-user-password" style={{ fontSize: '12px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Initial Password</label>
+                <input id="new-user-password" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
+              </div>
+              <div>
+                <label htmlFor="new-user-role" style={{ fontSize: '12px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Role</label>
+                <select id="new-user-role" value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}>
+                  <option value="VIEWER">VIEWER (read-only)</option>
+                  <option value="ADMIN">ADMIN</option>
+                </select>
+              </div>
+              <button className="btn-primary" onClick={handleCreateUser}>+ Add User</button>
+            </div>
+          </>
+        ) : (
+          <div data-testid="viewer-notice" style={{ fontSize: '13px', color: '#94a3b8' }}>
+            You are signed in as a read-only viewer. Instances, collection rules, retention and user accounts can only be changed by an administrator.
+          </div>
+        )}
       </div>
 
       {/* Retention Settings Panel */}

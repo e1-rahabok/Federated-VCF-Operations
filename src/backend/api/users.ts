@@ -13,11 +13,8 @@ export interface UserPreferences {
   pinnedObjects: PinnedObjectRef[];
 }
 
-// Login does not yet establish per-user sessions, so preferences are stored under one account.
-const PREFERENCES_USER = 'admin';
-
-export function readPreferences(): UserPreferences {
-  const row = getDatabase().prepare('SELECT layout_json FROM user_preferences WHERE username = ?').get(PREFERENCES_USER);
+export function readPreferences(username: string): UserPreferences {
+  const row = getDatabase().prepare('SELECT layout_json FROM user_preferences WHERE username = ?').get(username);
   let stored: any = {};
   try {
     stored = row ? JSON.parse(row.layout_json) : {};
@@ -37,7 +34,7 @@ export function readPreferences(): UserPreferences {
 // GET /api/v1/users/preferences
 router.get('/preferences', (req, res) => {
   try {
-    return res.json(readPreferences());
+    return res.json(readPreferences(req.user!.username));
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
@@ -47,7 +44,7 @@ router.get('/preferences', (req, res) => {
 router.put('/preferences', (req, res) => {
   try {
     const body = req.body || {};
-    const current = readPreferences();
+    const current = readPreferences(req.user!.username);
     const next: UserPreferences = {
       hiddenWidgets: Array.isArray(body.hiddenWidgets) ? body.hiddenWidgets.map(String) : current.hiddenWidgets,
       pinnedObjects: Array.isArray(body.pinnedObjects)
@@ -60,7 +57,7 @@ router.put('/preferences', (req, res) => {
     getDatabase().prepare(`
       INSERT INTO user_preferences (username, layout_json) VALUES (?, ?)
       ON CONFLICT(username) DO UPDATE SET layout_json = excluded.layout_json
-    `).run(PREFERENCES_USER, JSON.stringify(next));
+    `).run(req.user!.username, JSON.stringify(next));
 
     return res.json(next);
   } catch (err: any) {

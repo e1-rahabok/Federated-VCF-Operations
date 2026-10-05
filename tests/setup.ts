@@ -15,3 +15,5 @@ process.env.DATABASE_URL = ':memory:';
 process.env.ALLOW_INSECURE_HTTP = 'true';
 process.env.SEED_DEMO_DATA = 'false';
 process.env.API_TIMEOUT_SECONDS = '5';
+process.env.ADMIN_USERNAME = 'admin';
+process.env.ADMIN_PASSWORD = 'Test-Admin-Pw-1';

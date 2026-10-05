@@ -12,6 +12,8 @@ const ALERT_WINDOW_OVERLAP_MS = 60 * 1000;
 const MAX_METRIC_CATCHUP_MS = 6 * 60 * 60 * 1000;
 // Expired rows are deleted at most this often.
 const PURGE_INTERVAL_MS = 10 * 60 * 1000;
+// Consecutive failed polls before an instance's circuit breaker opens.
+const CIRCUIT_FAILURE_THRESHOLD = 3;
 // Object kinds shown as the parent hierarchy of a tracked resource.
 const ANCESTOR_KINDS = ['VMwareAdapter Instance', 'Datacenter', 'ClusterComputeResource', 'HostSystem'];
 // Kinds whose datastores are looked up (datastores are children of the objects using them).
@@ -20,6 +22,20 @@ const DATASTORE_CONSUMER_KINDS = ['VirtualMachine', 'HostSystem'];
 export interface SchedulerOptions {
   // Properties and relationships change rarely, so they are refreshed on this slower cadence.
   inventoryDetailRefreshSeconds?: number;
+  // An open circuit breaker waits this long before one trial poll. Each failed trial doubles
+  // the wait, up to the maximum (REQ-TEC-013).
+  circuitBreakerCooldownSeconds?: number;
+  circuitBreakerMaxCooldownSeconds?: number;
+}
+
+interface CircuitBreaker {
+  consecutiveFailures: number;
+  isOpen: boolean;
+  // While open: when the next trial poll is allowed, and the wait that led to it.
+  retryAt: number;
+  cooldownMs: number;
+  // Connection settings the failures were recorded against.
+  fingerprint: string;
 }
 
 interface CollectionRules {
@@ -40,13 +56,17 @@ export class PollingScheduler {
   private timer: NodeJS.Timeout | null = null;
   private watermarkMgr: WatermarkManager;
   private rollupAggregator: RollupAggregator;
-  private circuitBreakerMap: Map<string, { consecutiveFailures: number; isOpen: boolean }> = new Map();
+  private circuitBreakerMap: Map<string, CircuitBreaker> = new Map();
+  private circuitCooldownMs: number;
+  private circuitMaxCooldownMs: number;
   private lastInventoryDetailRefresh: Map<string, number> = new Map();
   private lastPurge: number = 0;
 
   constructor(intervalSeconds: number = 60, options: SchedulerOptions = {}) {
     this.intervalSeconds = intervalSeconds;
     this.inventoryDetailRefreshMs = (options.inventoryDetailRefreshSeconds ?? 15 * 60) * 1000;
+    this.circuitCooldownMs = (options.circuitBreakerCooldownSeconds ?? 2 * 60) * 1000;
+    this.circuitMaxCooldownMs = (options.circuitBreakerMaxCooldownSeconds ?? 15 * 60) * 1000;
     this.watermarkMgr = new WatermarkManager();
     this.rollupAggregator = new RollupAggregator();
   }
@@ -110,10 +130,19 @@ export class PollingScheduler {
   }
 
   private async pollInstance(instance: VcfInstanceConfig, rules: CollectionRules): Promise<void> {
-    const cb = this.circuitBreakerMap.get(instance.id) || { consecutiveFailures: 0, isOpen: false };
-    if (cb.isOpen) {
-      console.warn(`[Scheduler] Circuit breaker OPEN for instance ${instance.name}. Skipping cycle.`);
+    // Failures are counted against the connection settings they happened with: when an
+    // administrator edits the instance (new password, hostname, ...) the breaker starts fresh.
+    const fingerprint = JSON.stringify(instance);
+    let cb = this.circuitBreakerMap.get(instance.id);
+    if (!cb || cb.fingerprint !== fingerprint) {
+      cb = { consecutiveFailures: 0, isOpen: false, retryAt: 0, cooldownMs: this.circuitCooldownMs, fingerprint };
+      this.circuitBreakerMap.set(instance.id, cb);
+    }
+    if (cb.isOpen && Date.now() < cb.retryAt) {
       return;
+    }
+    if (cb.isOpen) {
+      console.log(`[Scheduler] Circuit breaker half-open for instance ${instance.name}. Trying one poll.`);
     }
 
     const db = getDatabase();
@@ -206,16 +235,32 @@ export class PollingScheduler {
       if (inventoryDetail) this.lastInventoryDetailRefresh.set(instance.id, cycleStart);
       await this.watermarkMgr.updateWatermark(instance.id, 'METRICS', maxMetricTimestamp);
       await this.watermarkMgr.updateWatermark(instance.id, 'ALERTS', maxAlertTimestamp);
-      this.circuitBreakerMap.set(instance.id, { consecutiveFailures: 0, isOpen: false });
+      if (cb.isOpen) {
+        console.log(`[Scheduler] Instance ${instance.name} recovered. Circuit breaker closed.`);
+      }
+      cb.consecutiveFailures = 0;
+      cb.isOpen = false;
+      cb.cooldownMs = this.circuitCooldownMs;
 
     } catch (err: any) {
-      console.error(`[Scheduler] Error polling instance ${instance.name}:`, err?.message || err);
-      db.prepare("UPDATE vcf_instances SET status = 'ERROR', last_error = ? WHERE id = ?").run(String(err?.message || err), instance.id);
+      const message = String(err?.message || err);
+      console.error(`[Scheduler] Error polling instance ${instance.name}:`, message);
       cb.consecutiveFailures += 1;
-      if (cb.consecutiveFailures >= 3) {
+
+      let note = '';
+      if (cb.isOpen) {
+        // The trial poll failed: stay open and wait twice as long before the next trial.
+        cb.cooldownMs = Math.min(cb.cooldownMs * 2, this.circuitMaxCooldownMs);
+      } else if (cb.consecutiveFailures >= CIRCUIT_FAILURE_THRESHOLD) {
         cb.isOpen = true;
+        cb.cooldownMs = this.circuitCooldownMs;
       }
-      this.circuitBreakerMap.set(instance.id, cb);
+      if (cb.isOpen) {
+        cb.retryAt = Date.now() + cb.cooldownMs;
+        note = ` (polling paused after ${cb.consecutiveFailures} consecutive failures; next attempt ${new Date(cb.retryAt).toISOString()})`;
+        console.warn(`[Scheduler] Circuit breaker OPEN for instance ${instance.name}. Next attempt in ${Math.round(cb.cooldownMs / 1000)}s.`);
+      }
+      db.prepare("UPDATE vcf_instances SET status = 'ERROR', last_error = ? WHERE id = ?").run(message + note, instance.id);
     }
   }
 

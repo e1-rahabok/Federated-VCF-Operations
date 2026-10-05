@@ -1,5 +1,5 @@
 import React from 'react';
-import { TIME_RANGES, useApi } from '../api';
+import { TIME_RANGES, useApi, type SessionUser } from '../api';
 
 interface HeaderProps {
   currentPath: string;
@@ -8,6 +8,8 @@ interface HeaderProps {
   onSelectInstance: (instanceId: string) => void;
   selectedTimeRange: string;
   onSelectTimeRange: (range: string) => void;
+  user: SessionUser;
+  onLogout: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,7 +18,9 @@ export const Header: React.FC<HeaderProps> = ({
   selectedInstance,
   onSelectInstance,
   selectedTimeRange,
-  onSelectTimeRange
+  onSelectTimeRange,
+  user,
+  onLogout
 }) => {
   // Re-read on navigation so instances added or removed in Settings show up in the scope list.
   const { data } = useApi<any[]>(`/instances?nav=${encodeURIComponent(currentPath)}`);
@@ -79,6 +83,11 @@ export const Header: React.FC<HeaderProps> = ({
               ))}
             </select>
           </div>
+
+          <div data-testid="session-user" style={{ fontSize: '13px', color: '#94a3b8' }}>
+            👤 <strong style={{ color: '#f8fafc' }}>{user.username}</strong> ({user.role})
+          </div>
+          <button className="btn-secondary" style={{ fontSize: '12px', padding: '6px 10px' }} onClick={onLogout}>Sign Out</button>
         </div>
       </div>
     </header>

@@ -111,7 +111,7 @@ router.get('/summary', (req, res) => {
 router.get('/pinned', (req, res) => {
   try {
     const pinned = [];
-    for (const ref of readPreferences().pinnedObjects) {
+    for (const ref of readPreferences(req.user!.username).pinnedObjects) {
       const resource = findResource(ref.resourceUuid, ref.instanceId);
       if (!resource) continue;
       pinned.push({
@@ -164,7 +164,7 @@ router.get('/:resourceUuid', (req, res) => {
       return res.status(404).json({ error: `Resource ${req.params.resourceUuid} not found.` });
     }
 
-    const pinned = readPreferences().pinnedObjects
+    const pinned = readPreferences(req.user!.username).pinnedObjects
       .some(p => p.instanceId === resource.instanceId && p.resourceUuid === resource.resourceUuid);
 
     return res.json({

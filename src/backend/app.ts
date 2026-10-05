@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { CONFIG } from './config.ts';
 import { getDatabase } from './db/database.ts';
+import { ensureInitialAdmin, requireAdminForWrites, requireAuth } from './auth.ts';
 
 import authRoutes from './api/auth.ts';
 import instanceRoutes from './api/instances.ts';
@@ -19,19 +20,21 @@ import systemRoutes from './api/system.ts';
  */
 export function createApp() {
   getDatabase();
+  ensureInitialAdmin();
 
   const app = express();
   app.use(cors());
   app.use(express.json({ limit: '2mb' }));
 
-  // API Routes
+  // API Routes. Login/logout are public; every other route needs a signed-in user, and
+  // only administrators may change anything except their own preferences.
   app.use('/api/v1/auth', authRoutes);
-  app.use('/api/v1/instances', instanceRoutes);
-  app.use('/api/v1/objects', objectRoutes);
-  app.use('/api/v1/alerts', alertRoutes);
-  app.use('/api/v1/metrics', metricRoutes);
-  app.use('/api/v1/users', userRoutes);
-  app.use('/api/v1/system', systemRoutes);
+  app.use('/api/v1/users', requireAuth, userRoutes);
+  app.use('/api/v1/instances', requireAuth, requireAdminForWrites, instanceRoutes);
+  app.use('/api/v1/objects', requireAuth, requireAdminForWrites, objectRoutes);
+  app.use('/api/v1/alerts', requireAuth, requireAdminForWrites, alertRoutes);
+  app.use('/api/v1/metrics', requireAuth, requireAdminForWrites, metricRoutes);
+  app.use('/api/v1/system', requireAuth, requireAdminForWrites, systemRoutes);
   app.use('/api', (req, res) => {
     res.status(404).json({ error: 'Endpoint not found' });
   });

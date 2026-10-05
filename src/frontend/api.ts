@@ -7,10 +7,33 @@ export function setApiBase(base: string): void {
   apiBase = base;
 }
 
+// The session lives in an HttpOnly cookie set at login. The token from the login response
+// is also kept in memory (never in browser storage) and sent as a Bearer header.
+let authToken: string | null = null;
+let unauthorizedHandler: (() => void) | null = null;
+
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+}
+
+/** Called whenever the server answers 401 to a request other than the sign-in itself. */
+export function onUnauthorized(handler: (() => void) | null): void {
+  unauthorizedHandler = handler;
+}
+
+export interface SessionUser {
+  username: string;
+  role: 'ADMIN' | 'VIEWER';
+}
+
 async function request<T>(method: string, path: string, body?: any): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
+
   const res = await fetch(`${apiBase}/api/v1${path}`, {
     method,
-    headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+    headers,
     body: body !== undefined ? JSON.stringify(body) : undefined
   });
 
@@ -19,6 +42,9 @@ async function request<T>(method: string, path: string, body?: any): Promise<T> 
     data = await res.json();
   } catch (err) {
     data = null;
+  }
+  if (res.status === 401 && path !== '/auth/login' && unauthorizedHandler) {
+    unauthorizedHandler();
   }
   if (!res.ok) {
     throw new Error(data?.error || data?.message || `Request failed with HTTP ${res.status}`);

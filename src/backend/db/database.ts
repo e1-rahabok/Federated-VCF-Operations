@@ -144,6 +144,14 @@ function initSchema(db: any) {
       value TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS users (
+      username TEXT PRIMARY KEY,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL,
+      token_version INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER
+    );
+
     CREATE TABLE IF NOT EXISTS user_preferences (
       username TEXT PRIMARY KEY,
       layout_json TEXT NOT NULL

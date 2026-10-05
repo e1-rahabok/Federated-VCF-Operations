@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
+import { apiPost, setAuthToken, type SessionUser } from '../api';
 
 interface LoginPageProps {
-  onLoginSuccess: () => void;
+  onLoginSuccess: (user: SessionUser) => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -16,22 +17,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setError('');
 
     try {
-      const res = await fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Login failed');
-      }
-
-      const data = await res.json();
-      localStorage.setItem('auth_token', data.token);
-      onLoginSuccess();
+      const data = await apiPost<{ token: string; user: SessionUser }>('/auth/login', { username, password });
+      setAuthToken(data.token);
+      onLoginSuccess(data.user);
     } catch (err: any) {
-      setError(err.message || 'Invalid credentials or session expired');
+      setError(err.message || 'Sign-in failed');
     } finally {
       setLoading(false);
     }
@@ -47,16 +37,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         </div>
 
         {error && (
-          <div style={{ background: '#7f1d1d', color: '#fca5a5', padding: '12px', borderRadius: '6px', fontSize: '13px', marginBottom: '16px' }}>
+          <div data-testid="login-error" style={{ background: '#7f1d1d', color: '#fca5a5', padding: '12px', borderRadius: '6px', fontSize: '13px', marginBottom: '16px' }}>
             ⚠️ {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '6px' }}>Username</label>
+            <label htmlFor="login-username" style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '6px' }}>Username</label>
             <input
+              id="login-username"
               type="text"
+              autoComplete="username"
               style={{ width: '100%' }}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -65,9 +57,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '6px' }}>Password</label>
+            <label htmlFor="login-password" style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '6px' }}>Password</label>
             <input
+              id="login-password"
               type="password"
+              autoComplete="current-password"
               style={{ width: '100%' }}
               value={password}
               onChange={(e) => setPassword(e.target.value)}

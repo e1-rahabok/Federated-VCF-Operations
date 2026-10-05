@@ -7,12 +7,22 @@ import { AlertDetailPage } from './pages/AlertDetailPage';
 import { MetricsPage } from './pages/MetricsPage';
 import { ObjectDetailPage } from './pages/ObjectDetailPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { apiGet, apiPost, onUnauthorized, setAuthToken, type SessionUser } from './api';
 
 export const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+  // undefined: session check in progress; null: signed out
+  const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
   const [currentPath, setCurrentPath] = useState<string>(window.location.pathname || '/');
   const [selectedInstance, setSelectedInstance] = useState<string>('ALL');
   const [selectedTimeRange, setSelectedTimeRange] = useState<string>('24h');
+
+  useEffect(() => {
+    // Any 401 (expired or revoked session) returns the user to the sign-in page.
+    onUnauthorized(() => { setAuthToken(null); setUser(null); });
+    // Restores the session from the HttpOnly cookie after a page reload.
+    apiGet<SessionUser>('/auth/me').then(setUser).catch(() => setUser(null));
+    return () => onUnauthorized(null);
+  }, []);
 
   useEffect(() => {
     const onPopState = () => setCurrentPath(window.location.pathname || '/');
@@ -25,8 +35,20 @@ export const App: React.FC = () => {
     window.history.pushState({}, '', path);
   };
 
-  if (!isAuthenticated) {
-    return <LoginPage onLoginSuccess={() => setIsAuthenticated(true)} />;
+  const handleLogout = async () => {
+    try {
+      await apiPost('/auth/logout', {});
+    } finally {
+      setAuthToken(null);
+      setUser(null);
+    }
+  };
+
+  if (user === undefined) {
+    return <div style={{ padding: '24px', color: '#94a3b8' }}>Checking session…</div>;
+  }
+  if (user === null) {
+    return <LoginPage onLoginSuccess={setUser} />;
   }
 
   const pageProps = { onNavigate: navigate, instanceId: selectedInstance, timeRange: selectedTimeRange };
@@ -48,7 +70,7 @@ export const App: React.FC = () => {
       return <ObjectDetailPage resourceUuid={decodeURIComponent(currentPath.split('/objects/')[1])} {...pageProps} />;
     }
     if (currentPath === '/settings') {
-      return <SettingsPage />;
+      return <SettingsPage user={user} />;
     }
     return (
       <div style={{ padding: '24px' }}>
@@ -70,6 +92,8 @@ export const App: React.FC = () => {
         onSelectInstance={setSelectedInstance}
         selectedTimeRange={selectedTimeRange}
         onSelectTimeRange={setSelectedTimeRange}
+        user={user}
+        onLogout={handleLogout}
       />
       <main style={{ flex: 1, maxWidth: '1400px', width: '100%', margin: '0 auto' }}>
         {renderCurrentPage()}
